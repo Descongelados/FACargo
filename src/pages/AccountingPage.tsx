@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
+import type { ComponentType } from 'react';
 import {
-  BookOpen, Plus, Lock, Unlock, Pencil, Trash2, ChevronDown,
-  TrendingUp, TrendingDown, DollarSign, Calendar, CheckCircle,
+  BookOpen, Plus, Lock, Unlock, Pencil, Trash2,
+  TrendingUp, DollarSign, Calendar,
   AlertCircle, FileText, ArrowUpRight, ArrowDownRight, Minus,
+  BarChart3,
 } from 'lucide-react';
 import { useAccountingStore } from '../store/useAccountingStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { AccountingEntry, AccountingPeriod, AccountingEntryType, AccountingEntryCategory } from '../types';
+import type { AccountingEntry, AccountingPeriod, AccountingEntryType, AccountingEntryCategory } from '../types';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -40,14 +42,21 @@ const ENTRY_CATEGORIES: { value: AccountingEntryCategory; label: string; type: A
   { value: 'other_expense',   label: 'Otros egresos',             type: 'expense' },
 ];
 
-const INCOME_CATEGORIES  = ENTRY_CATEGORIES.filter(c => c.type === 'income');
+const INCOME_CATEGORIES      = ENTRY_CATEGORIES.filter(c => c.type === 'income');
 const EXPENSE_CATEGORIES_ACC = ENTRY_CATEGORIES.filter(c => c.type === 'expense');
 
 type AccountingTab = 'summary' | 'income_statement' | 'cashflow' | 'ledger';
 
+const TABS: { id: AccountingTab; label: string; icon: ComponentType<{ className?: string }> }[] = [
+  { id: 'summary',          label: 'Resumen',              icon: BarChart3   },
+  { id: 'income_statement', label: 'Estado de Resultados', icon: FileText    },
+  { id: 'cashflow',         label: 'Flujo de Caja',        icon: TrendingUp  },
+  { id: 'ledger',           label: 'Libro Diario',         icon: BookOpen    },
+];
+
 const PERIOD_STATUS: Record<string, { label: string; color: string }> = {
-  open:   { label: 'Abierto',  color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  closed: { label: 'Cerrado',  color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
+  open:   { label: 'Abierto', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  closed: { label: 'Cerrado', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
 };
 
 const EMPTY_ENTRY: Omit<AccountingEntry, 'id'> = {
@@ -84,24 +93,23 @@ export default function AccountingPage() {
     useAccountingStore();
   const { currentUser } = useAuthStore();
 
-  const [activeTab, setActiveTab]             = useState<AccountingTab>('summary');
+  const [activeTab, setActiveTab]               = useState<AccountingTab>('summary');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(periods[periods.length - 1]?.id ?? '');
-  const [entryModalOpen, setEntryModalOpen]   = useState(false);
-  const [editingEntryId, setEditingEntryId]   = useState<string | null>(null);
-  const [entryForm, setEntryForm]             = useState<Omit<AccountingEntry, 'id'>>(EMPTY_ENTRY);
-  const [closeModalOpen, setCloseModalOpen]   = useState(false);
-  const [closeNotes, setCloseNotes]           = useState('');
+  const [entryModalOpen, setEntryModalOpen]     = useState(false);
+  const [editingEntryId, setEditingEntryId]     = useState<string | null>(null);
+  const [entryForm, setEntryForm]               = useState<Omit<AccountingEntry, 'id'>>(EMPTY_ENTRY);
+  const [closeModalOpen, setCloseModalOpen]     = useState(false);
+  const [closeNotes, setCloseNotes]             = useState('');
   const [newPeriodModalOpen, setNewPeriodModalOpen] = useState(false);
-  const [newPeriodMonth, setNewPeriodMonth]   = useState(new Date().getMonth() + 1);
-  const [newPeriodYear, setNewPeriodYear]     = useState(new Date().getFullYear());
+  const [newPeriodMonth, setNewPeriodMonth]     = useState(new Date().getMonth() + 1);
+  const [newPeriodYear, setNewPeriodYear]       = useState(new Date().getFullYear());
 
-  // Periodo seleccionado
   const selectedPeriod = periods.find(p => p.id === selectedPeriodId);
   const periodEntries  = entries.filter(e => e.periodId === selectedPeriodId);
   const periodTotals   = calcPeriodTotals(entries, selectedPeriodId);
   const isOpen         = selectedPeriod?.status === 'open';
 
-  // ─── Datos para gráficas (todos los periodos) ─────────────────────────────
+  // ─── Datos para gráficas ──────────────────────────────────────────────────
 
   const chartData = useMemo(() => {
     return [...periods]
@@ -109,31 +117,32 @@ export default function AccountingPage() {
       .map(p => {
         const t = calcPeriodTotals(entries, p.id);
         return {
-          mes: `${MONTHS[p.month - 1].slice(0, 3)} ${String(p.year).slice(2)}`,
+          mes:      `${MONTHS[p.month - 1].slice(0, 3)} ${String(p.year).slice(2)}`,
           Ingresos: t.income,
-          Egresos: t.expense,
+          Egresos:  t.expense,
           Utilidad: t.net,
         };
       });
   }, [periods, entries]);
 
-  // Desglose de egresos por categoría en el periodo seleccionado
   const expenseBreakdown = useMemo(() => {
-    return EXPENSE_CATEGORIES_ACC.map(cat => ({
-      label: cat.label,
-      amount: periodEntries.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
-    })).filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
+    return EXPENSE_CATEGORIES_ACC
+      .map(cat => ({
+        label:  cat.label,
+        amount: periodEntries.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
+      }))
+      .filter(c => c.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
   }, [periodEntries]);
 
-  // Estado de resultados acumulado de todos los periodos cerrados + abierto
   const incomeStatementRows = useMemo(() => {
     const incomeByCategory = INCOME_CATEGORIES.map(cat => ({
-      label: cat.label,
+      label:  cat.label,
       amount: periodEntries.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
     })).filter(c => c.amount > 0);
 
     const expenseByCategory = EXPENSE_CATEGORIES_ACC.map(cat => ({
-      label: cat.label,
+      label:  cat.label,
       amount: periodEntries.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
     })).filter(c => c.amount > 0);
 
@@ -157,7 +166,7 @@ export default function AccountingPage() {
     if (editingEntryId) updateEntry(editingEntryId, entryForm); else addEntry(entryForm);
     setEntryModalOpen(false);
   };
-  const fe = (key: keyof typeof entryForm, val: string | number | boolean) =>
+  const fe = (key: keyof Omit<AccountingEntry, 'id'>, val: string | number | boolean) =>
     setEntryForm(p => ({ ...p, [key]: val }));
 
   const handleClosePeriod = () => {
@@ -171,15 +180,14 @@ export default function AccountingPage() {
   const handleAddPeriod = () => {
     const id = `per-${newPeriodYear}-${String(newPeriodMonth).padStart(2, '0')}`;
     if (periods.find(p => p.id === id)) return;
-    const lastPeriod = [...periods].sort((a, b) => b.year * 100 + b.month - (a.year * 100 + a.month))[0];
-    const prevTotals = lastPeriod ? calcPeriodTotals(entries, lastPeriod.id) : { net: 0 };
+    const lastPeriod   = [...periods].sort((a, b) => b.year * 100 + b.month - (a.year * 100 + a.month))[0];
+    const prevTotals   = lastPeriod ? calcPeriodTotals(entries, lastPeriod.id) : { net: 0 };
     const openingBalance = (lastPeriod?.openingBalance ?? 0) + prevTotals.net;
     addPeriod({ year: newPeriodYear, month: newPeriodMonth, status: 'open', openingBalance });
     setSelectedPeriodId(id);
     setNewPeriodModalOpen(false);
   };
 
-  // Categorías disponibles según tipo seleccionado
   const availableCategories = entryForm.type === 'income'
     ? INCOME_CATEGORIES
     : entryForm.type === 'adjustment'
@@ -190,7 +198,11 @@ export default function AccountingPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Contabilidad Mensual" subtitle="Períodos contables, estado de resultados y flujo de caja" icon={BookOpen} />
+      <PageHeader
+        title="Contabilidad Mensual"
+        subtitle="Períodos contables, estado de resultados y flujo de caja"
+        icon={BookOpen}
+      />
 
       {/* ── Selector de periodo + acciones ───────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
@@ -273,9 +285,7 @@ export default function AccountingPage() {
             <p className="text-xl font-bold text-rose-400">{formatCurrency(periodTotals.expense)}</p>
           </div>
           <div className={`border rounded-xl p-4 ${
-            periodTotals.net >= 0
-              ? 'bg-emerald-500/5 border-emerald-500/20'
-              : 'bg-rose-500/5 border-rose-500/20'
+            periodTotals.net >= 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'
           }`}>
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className={`w-4 h-4 ${periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} />
@@ -286,7 +296,7 @@ export default function AccountingPage() {
             </p>
             {(periodTotals.income + periodTotals.adjustment) > 0 && (
               <p className="text-xs text-slate-500 mt-0.5">
-                {(periodTotals.net / (periodTotals.income + periodTotals.adjustment) * 100).toFixed(1)}% margen
+                {((periodTotals.net / (periodTotals.income + periodTotals.adjustment)) * 100).toFixed(1)}% margen
               </p>
             )}
           </div>
@@ -305,12 +315,7 @@ export default function AccountingPage() {
 
       {/* ── Sub-tabs ─────────────────────────────────────────────────────── */}
       <div className="flex gap-1 p-1 bg-slate-800 border border-slate-700/50 rounded-xl w-fit flex-wrap">
-        {([
-          { id: 'summary',          label: 'Resumen',           icon: BarChart3 ?? TrendingUp },
-          { id: 'income_statement', label: 'Estado de Resultados', icon: FileText },
-          { id: 'cashflow',         label: 'Flujo de Caja',      icon: TrendingUp },
-          { id: 'ledger',           label: 'Libro Diario',       icon: BookOpen },
-        ] as { id: AccountingTab; label: string; icon: React.ElementType }[]).map(t => (
+        {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
@@ -324,23 +329,20 @@ export default function AccountingPage() {
         ))}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB: RESUMEN                                                       */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ TAB: RESUMEN ═══════════════════════════════════════════════════ */}
       {activeTab === 'summary' && (
         <div className="space-y-4">
-          {/* Gráfica histórica */}
           <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-slate-300 mb-4">Evolución histórica — todos los periodos</h2>
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="gradIng" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradEgr" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                    <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
@@ -360,7 +362,6 @@ export default function AccountingPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Utilidad por periodo */}
             <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-slate-300 mb-4">Utilidad neta por periodo</h2>
               <ResponsiveContainer width="100%" height={200}>
@@ -378,7 +379,6 @@ export default function AccountingPage() {
               </ResponsiveContainer>
             </div>
 
-            {/* Desglose egresos periodo seleccionado */}
             <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-slate-300 mb-4">
                 Egresos por categoría — {selectedPeriod ? periodLabel(selectedPeriod) : ''}
@@ -409,7 +409,6 @@ export default function AccountingPage() {
             </div>
           </div>
 
-          {/* Tabla resumen de periodos */}
           <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-700">
               <h2 className="text-sm font-semibold text-slate-300">Resumen de todos los periodos</h2>
@@ -427,9 +426,9 @@ export default function AccountingPage() {
                   {[...periods]
                     .sort((a, b) => b.year * 100 + b.month - (a.year * 100 + a.month))
                     .map(p => {
-                      const t = calcPeriodTotals(entries, p.id);
+                      const t   = calcPeriodTotals(entries, p.id);
                       const closing = p.openingBalance + t.net;
-                      const st = PERIOD_STATUS[p.status];
+                      const st  = PERIOD_STATUS[p.status];
                       return (
                         <tr
                           key={p.id}
@@ -443,7 +442,7 @@ export default function AccountingPage() {
                           <td className="px-4 py-3 text-slate-400">{formatCurrency(p.openingBalance)}</td>
                           <td className="px-4 py-3 text-emerald-400 font-medium">{formatCurrency(t.income + t.adjustment)}</td>
                           <td className="px-4 py-3 text-rose-400">{formatCurrency(t.expense)}</td>
-                          <td className={`px-4 py-3 font-bold ${ t.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <td className={`px-4 py-3 font-bold ${t.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {formatCurrency(t.net)}
                           </td>
                           <td className="px-4 py-3 text-blue-400 font-medium">{formatCurrency(closing)}</td>
@@ -458,9 +457,7 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB: ESTADO DE RESULTADOS                                          */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ TAB: ESTADO DE RESULTADOS ══════════════════════════════════════ */}
       {activeTab === 'income_statement' && (
         <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
@@ -470,7 +467,6 @@ export default function AccountingPage() {
             <span className="text-xs text-slate-500">Periodo {selectedPeriod?.status === 'closed' ? 'cerrado' : 'en curso'}</span>
           </div>
           <div className="p-6 space-y-6">
-            {/* Ingresos */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <ArrowUpRight className="w-4 h-4 text-emerald-400" />
@@ -498,7 +494,6 @@ export default function AccountingPage() {
 
             <div className="border-t border-slate-700" />
 
-            {/* Egresos */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <ArrowDownRight className="w-4 h-4 text-rose-400" />
@@ -520,22 +515,19 @@ export default function AccountingPage() {
 
             <div className="border-t border-slate-700" />
 
-            {/* Utilidad */}
             <div className={`flex justify-between items-center p-4 rounded-xl border ${
-              periodTotals.net >= 0
-                ? 'bg-emerald-500/10 border-emerald-500/30'
-                : 'bg-rose-500/10 border-rose-500/30'
+              periodTotals.net >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'
             }`}>
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Utilidad / Pérdida neta del periodo</p>
-                <p className={`text-2xl font-bold ${ periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <p className={`text-2xl font-bold ${periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {formatCurrency(periodTotals.net)}
                 </p>
               </div>
               {periodTotals.income > 0 && (
                 <div className="text-right">
                   <p className="text-xs text-slate-400">Margen</p>
-                  <p className={`text-xl font-bold ${ periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <p className={`text-xl font-bold ${periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {((periodTotals.net / (periodTotals.income + periodTotals.adjustment)) * 100).toFixed(1)}%
                   </p>
                 </div>
@@ -545,9 +537,7 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB: FLUJO DE CAJA                                                 */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ TAB: FLUJO DE CAJA ═════════════════════════════════════════════ */}
       {activeTab === 'cashflow' && (
         <div className="space-y-4">
           <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
@@ -570,7 +560,6 @@ export default function AccountingPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Tabla saldos acumulados */}
           <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-700">
               <h2 className="text-sm font-semibold text-slate-300">Evolución del saldo</h2>
@@ -596,7 +585,7 @@ export default function AccountingPage() {
                           <td className="px-4 py-3 text-slate-400">{formatCurrency(p.openingBalance)}</td>
                           <td className="px-4 py-3 text-emerald-400">{formatCurrency(t.income + t.adjustment)}</td>
                           <td className="px-4 py-3 text-rose-400">{formatCurrency(t.expense)}</td>
-                          <td className={`px-4 py-3 font-bold ${ t.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <td className={`px-4 py-3 font-bold ${t.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {t.net >= 0 ? '+' : ''}{formatCurrency(t.net)}
                           </td>
                           <td className="px-4 py-3 text-blue-400 font-bold">{formatCurrency(closing)}</td>
@@ -610,17 +599,13 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB: LIBRO DIARIO                                                  */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ TAB: LIBRO DIARIO ══════════════════════════════════════════════ */}
       {activeTab === 'ledger' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">
-              {periodEntries.length} entradas en {selectedPeriod ? periodLabel(selectedPeriod) : 'este periodo'}
-              {!isOpen && <span className="ml-2 text-amber-400 text-xs">(periodo cerrado — solo lectura)</span>}
-            </p>
-          </div>
+          <p className="text-sm text-slate-400">
+            {periodEntries.length} entradas en {selectedPeriod ? periodLabel(selectedPeriod) : 'este periodo'}
+            {!isOpen && <span className="ml-2 text-amber-400 text-xs">(periodo cerrado — solo lectura)</span>}
+          </p>
 
           {periodEntries.length === 0 ? (
             <EmptyState
@@ -652,9 +637,9 @@ export default function AccountingPage() {
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{entry.date}</td>
                             <td className="px-4 py-3">
                               <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${
-                                isIncome ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                                isAdj    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                           'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                isIncome ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                : isAdj  ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                         : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
                               }`}>
                                 {isIncome ? <ArrowUpRight className="w-3 h-3" /> : isAdj ? <Minus className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                                 {isIncome ? 'Ingreso' : isAdj ? 'Ajuste' : 'Egreso'}
@@ -699,9 +684,7 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* MODAL: NUEVA / EDITAR ENTRADA                                      */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ MODAL: NUEVA / EDITAR ENTRADA ══════════════════════════════════ */}
       <Modal
         isOpen={entryModalOpen}
         onClose={() => setEntryModalOpen(false)}
@@ -714,7 +697,8 @@ export default function AccountingPage() {
               value={entryForm.type}
               onChange={e => {
                 const t = e.target.value as AccountingEntryType;
-                const defaultCat = t === 'income' ? 'freight_revenue' : t === 'adjustment' ? 'other_income' : 'fuel';
+                const defaultCat: AccountingEntryCategory =
+                  t === 'income' ? 'freight_revenue' : t === 'adjustment' ? 'other_income' : 'fuel';
                 fe('type', t);
                 fe('category', defaultCat);
               }}
@@ -726,7 +710,10 @@ export default function AccountingPage() {
           </FormField>
 
           <FormField label="Categoría" required>
-            <Select value={entryForm.category} onChange={e => fe('category', e.target.value as AccountingEntryCategory)}>
+            <Select
+              value={entryForm.category}
+              onChange={e => fe('category', e.target.value as AccountingEntryCategory)}
+            >
               {availableCategories.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
@@ -791,9 +778,7 @@ export default function AccountingPage() {
         </div>
       </Modal>
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* MODAL: CERRAR PERIODO                                              */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ MODAL: CERRAR PERIODO ═══════════════════════════════════════════ */}
       <Modal
         isOpen={closeModalOpen}
         onClose={() => setCloseModalOpen(false)}
@@ -824,7 +809,7 @@ export default function AccountingPage() {
               periodTotals.net >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10'
             }`}>
               <p className="text-xs text-slate-400 mb-1">Utilidad</p>
-              <p className={`text-sm font-bold ${ periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <p className={`text-sm font-bold ${periodTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {formatCurrency(periodTotals.net)}
               </p>
             </div>
@@ -855,9 +840,7 @@ export default function AccountingPage() {
         </div>
       </Modal>
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* MODAL: NUEVO PERIODO                                               */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══ MODAL: NUEVO PERIODO ════════════════════════════════════════════ */}
       <Modal
         isOpen={newPeriodModalOpen}
         onClose={() => setNewPeriodModalOpen(false)}
