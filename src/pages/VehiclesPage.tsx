@@ -59,9 +59,6 @@ const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number 
   'Gas LP':   { pricePerLiter: 12.00, kmPerLiter: 3.0 },
 };
 
-/** Km promedio por día asumidos para el calculador (para expresar seguro en $/km) */
-const KM_PER_DAY_ASSUMPTION = 400;
-
 /** Días hasta la fecha de vencimiento (negativo = ya venció) */
 function daysUntilExpiry(endDate: string): number {
   return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
@@ -86,7 +83,6 @@ export default function VehiclesPage() {
   const [calcVehicle, setCalcVehicle] = useState<Vehicle | null>(null);
   const [pricePerLiter, setPricePerLiter] = useState(25.00);
   const [kmPerLiter, setKmPerLiter] = useState(3.5);
-  const [margin, setMargin] = useState(20);
 
   // modal CRUD pólizas
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
@@ -95,19 +91,6 @@ export default function VehiclesPage() {
 
   // ─── Cálculos del calculador ───────────────────────────────────────────────
   const fuelCostPerKm = kmPerLiter > 0 ? pricePerLiter / kmPerLiter : 0;
-
-  // Seguro diario de la unidad en el calculador
-  const calcPolicy = calcVehicle ? policies.find(p => p.vehicleId === calcVehicle.id) : undefined;
-  const dailyInsuranceCost = calcPolicy ? calcPolicy.annualPremium / 365 : 0;
-
-  // Costo del seguro en $/km = costo diario ÷ km/día asumidos
-  const insuranceCostPerKm = dailyInsuranceCost / KM_PER_DAY_ASSUMPTION;
-
-  // Costo total / km = combustible + seguro
-  const totalCostPerKm = fuelCostPerKm + insuranceCostPerKm;
-
-  // Tarifa sugerida basada en el costo total
-  const suggestedRatePerKm = totalCostPerKm * (1 + margin / 100);
 
   // Filtrado flotilla
   const filteredVehicles = vehicles.filter((v) => {
@@ -152,7 +135,6 @@ export default function VehiclesPage() {
     const defaults = FUEL_DEFAULTS[v.fuelType] ?? FUEL_DEFAULTS['Diesel'];
     setPricePerLiter(defaults.pricePerLiter);
     setKmPerLiter(v.kmPerLiter ?? defaults.kmPerLiter);
-    setMargin(20);
     setCalcVehicle(v);
   };
 
@@ -742,106 +724,13 @@ export default function VehiclesPage() {
                   </div>
                 </div>
               </div>
-
-              {/* ── Costo del seguro ── */}
-              <div className={`p-4 rounded-xl border space-y-2 ${
-                calcPolicy
-                  ? 'bg-violet-500/5 border-violet-500/20'
-                  : 'bg-slate-700/20 border-slate-600/40'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <Shield className={`w-4 h-4 ${calcPolicy ? 'text-violet-400' : 'text-slate-500'}`} />
-                  <p className={`text-sm font-medium ${calcPolicy ? 'text-white' : 'text-slate-500'}`}>
-                    Costo del seguro
-                  </p>
-                  {!calcPolicy && (
-                    <span className="ml-auto text-xs text-slate-500 italic">Sin póliza asignada</span>
-                  )}
-                </div>
-                {calcPolicy ? (
-                  <div className="grid grid-cols-3 gap-3 pt-1">
-                    <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Aseguradora</p>
-                      <p className="text-sm text-white font-medium">{calcPolicy.insurer}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Prima anual</p>
-                      <p className="text-sm text-white font-medium">{formatCurrency(calcPolicy.annualPremium)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Costo / día</p>
-                      <p className="text-sm font-bold text-violet-400">{formatCurrency(dailyInsuranceCost)}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 pt-0.5">
-                    Registra una póliza en la pestaña <span className="text-slate-400">Seguros</span> para ver este dato.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-slate-300">
-                    Margen de ganancia: <span className="text-white font-bold">{margin}%</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={margin}
-                    min={0}
-                    max={500}
-                    onChange={e => setMargin(Math.max(0, +e.target.value))}
-                    className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.min(margin, 100)}
-                  onChange={e => setMargin(+e.target.value)}
-                  className="w-full h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
-                />
-                <div className="flex justify-between text-xs text-slate-600">
-                  <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-                </div>
-              </div>
             </div>
 
-            {/* ── Tarjetas de resultado ── */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                <p className="text-xs text-amber-300/70 mb-1">Costo total / km</p>
-                <p className="text-3xl font-bold text-amber-400">${totalCostPerKm.toFixed(2)}</p>
-                <div className="mt-2 space-y-0.5">
-                  <p className="text-xs text-slate-500">
-                    Combustible: ${fuelCostPerKm.toFixed(2)} / km
-                  </p>
-                  {calcPolicy && (
-                    <p className="text-xs text-violet-400/70">
-                      Seguro: ${insuranceCostPerKm.toFixed(2)} / km
-                      <span className="text-slate-600 ml-1">({KM_PER_DAY_ASSUMPTION} km/día)</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
-                <p className="text-xs text-emerald-300/70 mb-1">Tarifa mínima (+{margin}%)</p>
-                <p className="text-3xl font-bold text-emerald-400">${suggestedRatePerKm.toFixed(2)}</p>
-                <p className="text-xs text-slate-500 mt-1">MXN / km</p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-700/30 rounded-lg">
-              <p className="text-xs text-slate-400 mb-2 font-medium">Tarifa estimada por distancia (margen {margin}%)</p>
-              <div className="grid grid-cols-4 gap-2">
-                {[200, 500, 920, 1500].map((km) => (
-                  <div key={km} className="text-center p-2 bg-slate-700/50 rounded-lg">
-                    <p className="text-xs text-slate-400">{formatNumber(km)} km</p>
-                    <p className="text-sm font-bold text-white">{formatCurrency(suggestedRatePerKm * km)}</p>
-                  </div>
-                ))}
-              </div>
+            {/* ── Resultado ── */}
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
+              <p className="text-xs text-amber-300/70 mb-1">Costo de combustible / km</p>
+              <p className="text-3xl font-bold text-amber-400">${fuelCostPerKm.toFixed(2)}</p>
+              <p className="text-xs text-slate-500 mt-1">MXN / km</p>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-700">
