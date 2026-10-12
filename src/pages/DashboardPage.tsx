@@ -3,27 +3,33 @@ import { useVehiclesStore } from '../store/useVehiclesStore';
 import { useDriversStore } from '../store/useDriversStore';
 import { useExpensesStore } from '../store/useExpensesStore';
 import { useClientsStore } from '../store/useClientsStore';
+import { useQuotesStore } from '../store/useQuotesStore';
 import KpiCard from '../components/ui/KpiCard';
 import StatusBadge from '../components/ui/StatusBadge';
 import {
   LayoutDashboard, TrendingUp, DollarSign, Truck,
-  Map, Users, UserCheck, AlertCircle,
+  Map, Users, UserCheck, AlertCircle, FileText, ArrowRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, BarChart, Bar, Legend,
+  CartesianGrid, Tooltip, BarChart, Bar, Legend, PieChart, Pie, Cell,
 } from 'recharts';
-import { TRIP_STATUS_LABELS, VEHICLE_STATUS_LABELS } from '../constants';
+import { TRIP_STATUS_LABELS, VEHICLE_STATUS_LABELS, QUOTE_STATUS_LABELS } from '../constants';
 import { formatCurrency } from '../utils/formatters';
 
+// ─── Datos mensuales derivados de los mocks históricos ────────────────────────
+// Los valores reales se calculan de los stores; estos son acumulados de meses
+// anteriores que no se almacenan en el estado (datos de referencia visual).
 const MONTHLY_DATA = [
-  { mes: 'Oct', ingresos: 320000, gastos: 195000 },
-  { mes: 'Nov', ingresos: 285000, gastos: 178000 },
-  { mes: 'Dic', ingresos: 410000, gastos: 231000 },
-  { mes: 'Ene', ingresos: 375000, gastos: 210000 },
-  { mes: 'Feb', ingresos: 395000, gastos: 225000 },
-  { mes: 'Mar', ingresos: 448000, gastos: 252000 },
+  { mes: 'Oct', ingresos: 172000, gastos: 93200 },
+  { mes: 'Nov', ingresos: 149000, gastos: 81400 },
+  { mes: 'Dic', ingresos: 268000, gastos: 148200 },
+  { mes: 'Ene', ingresos: 166000, gastos: 92600 },
+  { mes: 'Feb', ingresos: 204000, gastos: 120800 },
+  { mes: 'Mar', ingresos: 113500, gastos: 63400 },
 ];
+
+const QUOTE_FUNNEL_COLORS = ['#64748b', '#3b82f6', '#10b981', '#f43f5e'];
 
 export default function DashboardPage() {
   const { trips } = useTripsStore();
@@ -31,14 +37,31 @@ export default function DashboardPage() {
   const { drivers } = useDriversStore();
   const { expenses } = useExpensesStore();
   const { clients } = useClientsStore();
+  const { quotes } = useQuotesStore();
 
-  const totalRevenue = trips.filter(t => t.status === 'delivered').reduce((s, t) => s + t.rate, 0)
+  // ─── KPIs ────────────────────────────────────────────────────────────────
+  const deliveredTrips = trips.filter(t => t.status === 'delivered');
+  const totalRevenue = deliveredTrips.reduce((s, t) => s + t.rate, 0)
     + MONTHLY_DATA.slice(0, 5).reduce((s, d) => s + d.ingresos, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
     + MONTHLY_DATA.slice(0, 5).reduce((s, d) => s + d.gastos, 0);
   const activeTrips = trips.filter(t => ['in_transit', 'loading', 'assigned'].includes(t.status)).length;
   const availableVehicles = vehicles.filter(v => v.status === 'available').length;
   const availableDrivers = drivers.filter(d => d.status === 'available').length;
+
+  // Cotizaciones
+  const pendingQuotes = quotes.filter(q => q.status === 'draft' || q.status === 'sent').length;
+  const approvedQuotes = quotes.filter(q => q.status === 'approved').length;
+  const conversionRate = quotes.length > 0 ? ((approvedQuotes / quotes.length) * 100).toFixed(0) : '0';
+
+  // ─── Embudo de cotizaciones (pie) ────────────────────────────────────────
+  const quoteFunnel = [
+    { name: 'Borrador', value: quotes.filter(q => q.status === 'draft').length },
+    { name: 'Enviada', value: quotes.filter(q => q.status === 'sent').length },
+    { name: 'Aprobada', value: quotes.filter(q => q.status === 'approved').length },
+    { name: 'Rechazada', value: quotes.filter(q => q.status === 'rejected').length },
+  ].filter(d => d.value > 0);
+
   const recentTrips = [...trips].slice(0, 5);
 
   return (
@@ -54,7 +77,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — fila 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Ingresos Totales"
@@ -86,7 +109,45 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Charts */}
+      {/* KPIs — fila 2: cotizaciones */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="w-4 h-4 text-blue-400" />
+            <p className="text-xs text-slate-400">Cotizaciones activas</p>
+          </div>
+          <p className="text-2xl font-bold text-white">{pendingQuotes}</p>
+          <p className="text-xs text-slate-500 mt-1">{quotes.length} en total</p>
+        </div>
+        <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <p className="text-xs text-slate-400">Tasa de conversión</p>
+          </div>
+          <p className="text-2xl font-bold text-emerald-400">{conversionRate}%</p>
+          <p className="text-xs text-slate-500 mt-1">{approvedQuotes} aprobadas</p>
+        </div>
+        <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-blue-400" />
+            <p className="text-xs text-slate-400">Clientes activos</p>
+          </div>
+          <p className="text-2xl font-bold text-white">{clients.filter(c => c.status === 'active').length}</p>
+          <p className="text-xs text-slate-500 mt-1">{clients.length} registrados</p>
+        </div>
+        <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <p className="text-xs text-slate-400">Margen neto aprox.</p>
+          </div>
+          <p className="text-2xl font-bold text-emerald-400">
+            {totalRevenue > 0 ? `${(((totalRevenue - totalExpenses) / totalRevenue) * 100).toFixed(1)}%` : '—'}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">{formatCurrency(totalRevenue - totalExpenses)}</p>
+        </div>
+      </div>
+
+      {/* Charts fila 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Area chart ingresos vs gastos */}
         <div className="lg:col-span-2 bg-slate-800 border border-slate-700/50 rounded-xl p-5">
@@ -142,7 +203,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Viajes recientes + Alertas */}
+      {/* Charts fila 2: viajes recientes + embudo cotizaciones */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Viajes recientes */}
         <div className="lg:col-span-2 bg-slate-800 border border-slate-700/50 rounded-xl p-5">
@@ -158,7 +219,11 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-white">{trip.tripNumber}</p>
                       <StatusBadge colorClass={s.color} label={s.label} />
                     </div>
-                    <p className="text-xs text-slate-400 truncate">{trip.origin} → {trip.destination}</p>
+                    <div className="flex items-center gap-1 text-xs text-slate-400 truncate">
+                      <span>{trip.origin}</span>
+                      <ArrowRight className="w-3 h-3 shrink-0" />
+                      <span>{trip.destination}</span>
+                    </div>
                   </div>
                   <p className="text-sm font-semibold text-emerald-400 shrink-0">{formatCurrency(trip.rate)}</p>
                 </div>
@@ -167,39 +232,66 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Resumen rápido */}
+        {/* Embudo de cotizaciones */}
         <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-slate-300 mb-4">Resumen Rápido</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-400" />
-                <span className="text-sm text-slate-300">Clientes activos</span>
+          <h2 className="text-sm font-semibold text-slate-300 mb-1">Cotizaciones</h2>
+          <p className="text-xs text-slate-500 mb-3">Distribución por estatus</p>
+          {quoteFunnel.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={quoteFunnel} dataKey="value" cx="50%" cy="50%" outerRadius={55} innerRadius={30}>
+                    {quoteFunnel.map((_, i) => (
+                      <Cell key={i} fill={QUOTE_FUNNEL_COLORS[i % QUOTE_FUNNEL_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-2">
+                {quoteFunnel.map((item, i) => (
+                  <div key={item.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ background: QUOTE_FUNNEL_COLORS[i % QUOTE_FUNNEL_COLORS.length] }} />
+                      <span className="text-slate-400">{item.name}</span>
+                    </div>
+                    <span className="text-white font-medium">{item.value}</span>
+                  </div>
+                ))}
               </div>
-              <span className="font-bold text-white">{clients.filter(c => c.status === 'active').length}</span>
+              <div className="mt-3 pt-3 border-t border-slate-700">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Conversión</span>
+                  <span className="text-emerald-400 font-semibold">{conversionRate}%</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <FileText className="w-8 h-8 mb-2 opacity-30" />
+              <p className="text-xs">Sin cotizaciones aún</p>
             </div>
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+          )}
+
+          {/* Alertas rápidas */}
+          <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
+            <p className="text-xs font-semibold text-slate-400">Alertas</p>
+            <div className="flex items-center justify-between p-2.5 bg-slate-700/30 rounded-lg">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-slate-300">Operadores disponibles</span>
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-slate-300">Operadores libres</span>
               </div>
-              <span className="font-bold text-white">{availableDrivers}</span>
+              <span className="font-bold text-white text-xs">{availableDrivers}</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+            <div className="flex items-center justify-between p-2.5 bg-slate-700/30 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-400" />
-                <span className="text-sm text-slate-300">En mantenimiento</span>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs text-slate-300">En mantenimiento</span>
               </div>
-              <span className="font-bold text-white">{vehicles.filter(v => v.status === 'maintenance').length}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-slate-300">Margen neto aprox.</span>
-              </div>
-              <span className="font-bold text-emerald-400">
-                {totalRevenue > 0 ? `${(((totalRevenue - totalExpenses) / totalRevenue) * 100).toFixed(1)}%` : '-'}
-              </span>
+              <span className="font-bold text-white text-xs">{vehicles.filter(v => v.status === 'maintenance').length}</span>
             </div>
           </div>
         </div>

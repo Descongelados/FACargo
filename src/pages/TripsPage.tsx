@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import {
-  Map, Pencil, Trash2, ArrowRight, ChevronRight,
+  Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
   FileText, Plus, CheckCircle, Send, XCircle, RotateCcw,
-  UserX, UserCheck, Calculator, Truck,
+  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Clock,
 } from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
 import { useQuotesStore } from '../store/useQuotesStore';
@@ -17,7 +17,7 @@ import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
-import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS } from '../constants';
+import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS, EXPENSE_CATEGORIES } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -58,7 +58,6 @@ function calcCostPerKm(
   const vehicleTrips = trips.filter(t => t.vehicleId === vehicleId);
   const totalKm = vehicleTrips.reduce((s, t) => s + (t.distanceKm ?? 0), 0);
   if (totalKm === 0) return 0;
-
   const tripIds = new Set(vehicleTrips.map(t => t.id));
   const totalExpenses = expenses
     .filter(e => e.tripId && tripIds.has(e.tripId))
@@ -66,11 +65,145 @@ function calcCostPerKm(
   const maintenanceCost = maintenances
     .filter(m => m.vehicleId === vehicleId)
     .reduce((s, m) => s + m.cost, 0);
-
   return (totalExpenses + maintenanceCost) / totalKm;
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Sub-componente: Panel de detalle de viaje ────────────────────────────────
+
+function TripDetailPanel({ trip }: { trip: Trip }) {
+  const { expenses } = useExpensesStore();
+  const tripExpenses = expenses.filter(e => e.tripId === trip.id);
+  const totalExpenses = tripExpenses.reduce((s, e) => s + e.amount, 0);
+  const profit = trip.rate - totalExpenses;
+  const margin = trip.rate > 0 ? (profit / trip.rate) * 100 : 0;
+
+  const byCategory = EXPENSE_CATEGORIES.map(cat => ({
+    label: cat.label,
+    amount: tripExpenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
+  })).filter(c => c.amount > 0);
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-700/60 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Métricas financieras */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Rentabilidad del viaje</p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
+            <p className="text-xs text-slate-400 mb-0.5">Tarifa</p>
+            <p className="text-sm font-bold text-emerald-400">{formatCurrency(trip.rate)}</p>
+          </div>
+          <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
+            <p className="text-xs text-slate-400 mb-0.5">Gastos</p>
+            <p className="text-sm font-bold text-rose-400">{formatCurrency(totalExpenses)}</p>
+          </div>
+          <div className={`rounded-lg p-2.5 text-center ${
+            profit >= 0 ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'
+          }`}>
+            <p className="text-xs text-slate-400 mb-0.5">Utilidad</p>
+            <p className={`text-sm font-bold ${ profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {formatCurrency(profit)}
+            </p>
+          </div>
+        </div>
+        {trip.rate > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all ${
+                  margin >= 30 ? 'bg-emerald-500' : margin >= 10 ? 'bg-amber-500' : 'bg-rose-500'
+                }`}
+                style={{ width: `${Math.max(0, Math.min(100, margin))}%` }}
+              />
+            </div>
+            <span className={`text-xs font-medium ${
+              margin >= 30 ? 'text-emerald-400' : margin >= 10 ? 'text-amber-400' : 'text-rose-400'
+            }`}>{margin.toFixed(1)}% margen</span>
+          </div>
+        )}
+
+        {/* Datos del viaje */}
+        <div className="space-y-1.5 pt-1">
+          {trip.distanceKm > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Costo / km</span>
+              <span className="text-slate-300">
+                {formatCurrency(totalExpenses > 0 && trip.distanceKm > 0 ? totalExpenses / trip.distanceKm : 0)} / km
+              </span>
+            </div>
+          )}
+          {trip.departureDate && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Salida</span>
+              <span className="text-slate-300">{formatDate(trip.departureDate)}</span>
+            </div>
+          )}
+          {trip.deliveryDate && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Entrega</span>
+              <span className="text-slate-300">{formatDate(trip.deliveryDate)}</span>
+            </div>
+          )}
+          {trip.cargoWeightKg > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Peso carga</span>
+              <span className="text-slate-300">{trip.cargoWeightKg.toLocaleString('es-MX')} kg</span>
+            </div>
+          )}
+          {trip.distanceKm > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Distancia</span>
+              <span className="text-slate-300">{trip.distanceKm.toLocaleString('es-MX')} km</span>
+            </div>
+          )}
+          {trip.notes && (
+            <div className="flex justify-between text-xs gap-4">
+              <span className="text-slate-500 shrink-0">Notas</span>
+              <span className="text-slate-400 text-right italic">{trip.notes}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Gastos del viaje */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          Gastos registrados ({tripExpenses.length})
+        </p>
+        {tripExpenses.length === 0 ? (
+          <div className="flex items-center gap-2 p-3 bg-slate-700/30 rounded-lg">
+            <Receipt className="w-4 h-4 text-slate-500" />
+            <p className="text-xs text-slate-500">Sin gastos registrados para este viaje</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {tripExpenses.map(exp => (
+              <div key={exp.id} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-300 truncate">{exp.description}</p>
+                  <p className="text-xs text-slate-500">{EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.label ?? exp.category}</p>
+                </div>
+                <p className="text-xs font-semibold text-rose-400 ml-2 shrink-0">{formatCurrency(exp.amount)}</p>
+              </div>
+            ))}
+            {/* Desglose por categoría */}
+            {byCategory.length > 1 && (
+              <div className="pt-1 mt-1 border-t border-slate-700/50 space-y-1">
+                {byCategory.map(cat => (
+                  <div key={cat.label} className="flex justify-between text-xs">
+                    <span className="text-slate-500">{cat.label}</span>
+                    <span className="text-slate-400">{formatCurrency(cat.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function TripsPage() {
   const { trips, addTrip, updateTrip, updateTripStatus, deleteTrip } = useTripsStore();
@@ -84,6 +217,7 @@ export default function TripsPage() {
   const [tab, setTab] = useState<Tab>('trips');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
 
   // modales viajes
   const [tripModalOpen, setTripModalOpen] = useState(false);
@@ -104,7 +238,6 @@ export default function TripsPage() {
     return calcCostPerKm(quoteForm.vehicleId, trips, expenses, maintenances);
   }, [quoteForm.vehicleId, trips, expenses, maintenances]);
 
-  // Tarifa sugerida = costo/km × (1 + margen%) × distancia
   const quoteSuggestedRate = quoteCostPerKm * (1 + quoteMargin / 100) * quoteForm.distanceKm;
   const hasVehicleCost = quoteCostPerKm > 0 && quoteForm.distanceKm >= MIN_KM;
 
@@ -146,6 +279,8 @@ export default function TripsPage() {
     const idx = TRIP_FLOW.indexOf(trip.status);
     if (idx < TRIP_FLOW.length - 1) updateTripStatus(trip.id, TRIP_FLOW[idx + 1]);
   };
+  const toggleExpand = (id: string) =>
+    setExpandedTripId(prev => (prev === id ? null : id));
 
   // ─── Cotizaciones ──────────────────────────────────────────────────────────
 
@@ -176,10 +311,7 @@ export default function TripsPage() {
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
-    if (quoteForm.distanceKm < MIN_KM) {
-      setKmError(`La distancia mínima es ${MIN_KM} km.`);
-      return;
-    }
+    if (quoteForm.distanceKm < MIN_KM) { setKmError(`La distancia mínima es ${MIN_KM} km.`); return; }
     if (editingQuoteId) updateQuote(editingQuoteId, quoteForm); else addQuote(quoteForm);
     setQuoteModalOpen(false);
   };
@@ -202,7 +334,6 @@ export default function TripsPage() {
     setQuoteForm(p => ({ ...p, clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '' }));
   };
 
-  // Convertir cotización en viaje
   const convertToTrip = (q: Quote) => {
     addTrip({
       clientId: q.clientId, clientName: q.clientName,
@@ -220,7 +351,7 @@ export default function TripsPage() {
     setSearch('');
   };
 
-  const switchTab = (t: Tab) => { setTab(t); setSearch(''); setStatusFilter('all'); };
+  const switchTab = (t: Tab) => { setTab(t); setSearch(''); setStatusFilter('all'); setExpandedTripId(null); };
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -297,13 +428,26 @@ export default function TripsPage() {
         filteredTrips.length === 0 ? (
           <EmptyState icon={Map} title="Sin viajes" description="Crea el primer viaje para comenzar el despacho." action={{ label: 'Nuevo Viaje', onClick: openAddTrip }} />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {filteredTrips.map((trip) => {
               const s = TRIP_STATUS_LABELS[trip.status];
               const canAdvance = trip.status !== 'delivered' && trip.status !== 'cancelled';
+              const isExpanded = expandedTripId === trip.id;
+              const tripExpensesTotal = expenses.filter(e => e.tripId === trip.id).reduce((sum, e) => sum + e.amount, 0);
               return (
-                <div key={trip.id} className="bg-slate-800 border border-slate-700/50 rounded-xl p-4 hover:border-slate-600 transition-colors">
+                <div key={trip.id} className={`bg-slate-800 border rounded-xl p-4 transition-all ${
+                  isExpanded ? 'border-blue-500/40' : 'border-slate-700/50 hover:border-slate-600'
+                }`}>
                   <div className="flex items-start gap-4">
+                    {/* Toggle expand */}
+                    <button
+                      onClick={() => toggleExpand(trip.id)}
+                      className="mt-0.5 p-1 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
+                      title={isExpanded ? 'Colapsar' : 'Ver detalle'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-bold text-white text-sm">{trip.tripNumber}</span>
@@ -320,7 +464,13 @@ export default function TripsPage() {
                         <span>Operador: <span className="text-slate-300">{trip.driverName || '—'}</span></span>
                         <span>Unidad: <span className="text-slate-300">{trip.vehicleUnit || '—'}</span></span>
                         <span>Carga: <span className="text-slate-300">{trip.cargoDescription}</span></span>
-                        <span>Distancia: <span className="text-slate-300">{trip.distanceKm} km</span></span>
+                        {trip.distanceKm > 0 && <span>Distancia: <span className="text-slate-300">{trip.distanceKm} km</span></span>}
+                        {tripExpensesTotal > 0 && (
+                          <span className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            Gastos: <span className="text-rose-400">{formatCurrency(tripExpensesTotal)}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
@@ -336,6 +486,9 @@ export default function TripsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Panel de detalle expandible */}
+                  {isExpanded && <TripDetailPanel trip={trip} />}
                 </div>
               );
             })}
@@ -491,7 +644,6 @@ export default function TripsPage() {
       {/* ══ MODAL COTIZACIÓN ════════════════════════════════════════════════════ */}
       <Modal isOpen={quoteModalOpen} onClose={() => setQuoteModalOpen(false)} title={editingQuoteId ? 'Editar Cotización' : 'Nueva Cotización'} size="xl">
         <div className="grid grid-cols-2 gap-4">
-
           {/* Toggle cliente */}
           <div className="col-span-2">
             <div className="flex gap-2 p-1 bg-slate-700/40 border border-slate-600/50 rounded-lg w-fit">
@@ -510,7 +662,6 @@ export default function TripsPage() {
             </div>
           </div>
 
-          {/* Campos cliente */}
           {!guestClient ? (
             <FormField label="Cliente" required className="col-span-2">
               <Select value={quoteForm.clientId} onChange={(e) => handleQuoteClientChange(e.target.value)}>
@@ -532,7 +683,6 @@ export default function TripsPage() {
             </>
           )}
 
-          {/* Unidad de referencia */}
           <FormField label="Unidad de Referencia" className="col-span-2">
             <Select value={quoteForm.vehicleId ?? ''} onChange={(e) => handleQuoteVehicleChange(e.target.value)}>
               <option value="">Sin unidad — calcular manualmente</option>
@@ -540,12 +690,11 @@ export default function TripsPage() {
             </Select>
           </FormField>
 
-          {/* Panel costo/km con margen y botón "Usar tarifa sugerida" */}
+          {/* Panel costo/km */}
           {quoteForm.vehicleId && (
             <div className="col-span-2">
               {quoteCostPerKm > 0 ? (
                 <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-3">
-                  {/* Métricas */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -576,27 +725,19 @@ export default function TripsPage() {
                       <p className="text-xs text-slate-500">costo/km × margen × km</p>
                     </div>
                   </div>
-                  {/* Control de margen + botón aplicar */}
                   <div className="flex items-center gap-3 pt-2 border-t border-amber-500/10">
                     <span className="text-xs text-slate-400 shrink-0">Margen:</span>
-                    <input
-                      type="range"
-                      min={0} max={100}
-                      value={quoteMargin}
+                    <input type="range" min={0} max={100} value={quoteMargin}
                       onChange={(e) => setQuoteMargin(+e.target.value)}
                       className="flex-1 h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
                     />
-                    <input
-                      type="number"
-                      min={0} max={200}
-                      value={quoteMargin}
+                    <input type="number" min={0} max={200} value={quoteMargin}
                       onChange={(e) => setQuoteMargin(Math.max(0, +e.target.value))}
                       className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
                     />
                     <span className="text-xs text-slate-400">%</span>
                     {hasVehicleCost && (
-                      <button
-                        type="button"
+                      <button type="button"
                         onClick={() => fq('proposedRate', Math.round(quoteSuggestedRate))}
                         className="shrink-0 px-3 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
                       >
@@ -610,7 +751,7 @@ export default function TripsPage() {
                   <div className="flex items-center gap-2">
                     <Calculator className="w-4 h-4 text-slate-500" />
                     <p className="text-xs text-slate-400">
-                      La unidad <span className="text-white font-medium">{quoteForm.vehicleUnit}</span> aún no tiene viajes ni gastos registrados. El costo/km no está disponible.
+                      La unidad <span className="text-white font-medium">{quoteForm.vehicleUnit}</span> aún no tiene viajes ni gastos registrados.
                     </p>
                   </div>
                 </div>
@@ -618,7 +759,6 @@ export default function TripsPage() {
             </div>
           )}
 
-          {/* Ruta */}
           <FormField label="Origen" required>
             <Input value={quoteForm.origin} onChange={(e) => fq('origin', e.target.value)} placeholder="Monterrey, NL" />
           </FormField>
@@ -626,7 +766,6 @@ export default function TripsPage() {
             <Input value={quoteForm.destination} onChange={(e) => fq('destination', e.target.value)} placeholder="Ciudad de México, CDMX" />
           </FormField>
 
-          {/* Tipo de remolque y estatus */}
           <FormField label="Tipo de Remolque" required>
             <Select value={quoteForm.trailerType} onChange={(e) => fq('trailerType', e.target.value as TrailerType)}>
               {TRAILER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -638,7 +777,6 @@ export default function TripsPage() {
             </Select>
           </FormField>
 
-          {/* Carga */}
           <FormField label="Descripción de Carga" required className="col-span-2">
             <Input value={quoteForm.cargoDescription} onChange={(e) => fq('cargoDescription', e.target.value)} placeholder="Electrónicos, Alimentos, Acero..." />
           </FormField>
@@ -646,7 +784,6 @@ export default function TripsPage() {
             <Input type="number" value={quoteForm.cargoWeightKg} onChange={(e) => fq('cargoWeightKg', +e.target.value)} min={0} />
           </FormField>
 
-          {/* Distancia con validación mínima */}
           <FormField label={`Distancia estimada (km) — mín. ${MIN_KM} km`} error={kmError}>
             <Input
               type="number"
@@ -658,7 +795,6 @@ export default function TripsPage() {
             />
           </FormField>
 
-          {/* Tarifa y vigencia */}
           <FormField label="Tarifa Propuesta (MXN)" required>
             <Input type="number" value={quoteForm.proposedRate} onChange={(e) => fq('proposedRate', +e.target.value)} min={0} />
           </FormField>
