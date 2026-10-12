@@ -4,7 +4,7 @@ import { MOCK_DRIVERS } from '../data/mockData';
 
 interface DriversState {
   drivers: Driver[];
-  addDriver: (driver: Omit<Driver, 'id' | 'totalTrips' | 'rating'>) => void;
+  addDriver: (driver: Omit<Driver, 'id'>) => void;
   updateDriver: (id: string, driver: Partial<Driver>) => void;
   deleteDriver: (id: string) => void;
 }
@@ -18,8 +18,8 @@ export const useDriversStore = create<DriversState>((set) => ({
         {
           ...data,
           id: `drv-${Date.now()}`,
-          rating: 5.0,
-          totalTrips: 0,
+          rating: data.rating ?? 5.0,
+          totalTrips: data.totalTrips ?? 0,
         },
       ],
     })),
