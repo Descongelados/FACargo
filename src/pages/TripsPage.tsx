@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Map, Pencil, Trash2, ArrowRight, ChevronRight, FileText, Plus, CheckCircle, Send, XCircle, RotateCcw } from 'lucide-react';
+import {
+  Map, Pencil, Trash2, ArrowRight, ChevronRight,
+  FileText, Plus, CheckCircle, Send, XCircle, RotateCcw, UserX, UserCheck,
+} from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
 import { useQuotesStore } from '../store/useQuotesStore';
 import { useClientsStore } from '../store/useClientsStore';
 import { useDriversStore } from '../store/useDriversStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
 import { Trip, TripStatus, Quote, QuoteStatus, TrailerType } from '../types';
-import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
 import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
@@ -15,9 +17,13 @@ import { FormField, Input, Select } from '../components/ui/FormElements';
 import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
-// ─── Viajes ──────────────────────────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const TRIP_FLOW: TripStatus[] = ['pending', 'assigned', 'loading', 'in_transit', 'delivered'];
+
+const TRAILER_TYPES: TrailerType[] = [
+  'Dry Van (Caja Seca)', 'Reefer (Refrigerado)', 'Flatbed (Plataforma)', 'Tanker (Pipa)', 'Lowboy',
+];
 
 const EMPTY_TRIP: Omit<Trip, 'id' | 'tripNumber'> = {
   clientId: '', clientName: '', driverId: '', driverName: '',
@@ -26,22 +32,16 @@ const EMPTY_TRIP: Omit<Trip, 'id' | 'tripNumber'> = {
   deliveryDate: '', rate: 0, status: 'pending', distanceKm: 0, notes: '',
 };
 
-// ─── Cotizaciones ─────────────────────────────────────────────────────────────
-
-const TRAILER_TYPES: TrailerType[] = [
-  'Dry Van (Caja Seca)', 'Reefer (Refrigerado)', 'Flatbed (Plataforma)', 'Tanker (Pipa)', 'Lowboy',
-];
-
 const EMPTY_QUOTE: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'> = {
-  clientId: '', clientName: '', origin: '', destination: '',
-  cargoDescription: '', cargoWeightKg: 0, distanceKm: 0,
-  trailerType: 'Dry Van (Caja Seca)', proposedRate: 0,
+  clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '',
+  origin: '', destination: '', cargoDescription: '', cargoWeightKg: 0,
+  distanceKm: 0, trailerType: 'Dry Van (Caja Seca)', proposedRate: 0,
   validUntil: '', status: 'draft', notes: '',
 };
 
-// ─── Componente ──────────────────────────────────────────────────────────────
-
 type Tab = 'trips' | 'quotes';
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function TripsPage() {
   const { trips, addTrip, updateTrip, updateTripStatus, deleteTrip } = useTripsStore();
@@ -54,17 +54,19 @@ export default function TripsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // ── modales viajes
+  // modales viajes
   const [tripModalOpen, setTripModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [tripForm, setTripForm] = useState<Omit<Trip, 'id' | 'tripNumber'>>(EMPTY_TRIP);
 
-  // ── modales cotizaciones
+  // modales cotizaciones
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>>(EMPTY_QUOTE);
+  // toggle cliente no registrado
+  const [guestClient, setGuestClient] = useState(false);
 
-  // ─── Viajes handlers ────────────────────────────────────────────────────────
+  // ─── Viajes ────────────────────────────────────────────────────────────────
 
   const filteredTrips = trips.filter((t) => {
     const matchSearch =
@@ -72,8 +74,7 @@ export default function TripsPage() {
       t.clientName.toLowerCase().includes(search.toLowerCase()) ||
       t.origin.toLowerCase().includes(search.toLowerCase()) ||
       t.destination.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || t.status === statusFilter;
-    return matchSearch && matchStatus;
+    return matchSearch && (statusFilter === 'all' || t.status === statusFilter);
   });
 
   const openAddTrip = () => { setTripForm(EMPTY_TRIP); setEditingTripId(null); setTripModalOpen(true); };
@@ -82,30 +83,29 @@ export default function TripsPage() {
     setTripForm(rest); setEditingTripId(id); setTripModalOpen(true);
   };
   const handleSaveTrip = () => {
-    if (editingTripId) updateTrip(editingTripId, tripForm);
-    else addTrip(tripForm);
+    if (editingTripId) updateTrip(editingTripId, tripForm); else addTrip(tripForm);
     setTripModalOpen(false);
   };
   const ft = (key: keyof typeof tripForm, val: string | number) =>
-    setTripForm((prev) => ({ ...prev, [key]: val }));
+    setTripForm((p) => ({ ...p, [key]: val }));
   const handleTripClientChange = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    setTripForm(prev => ({ ...prev, clientId, clientName: client?.name ?? '' }));
+    const c = clients.find(c => c.id === clientId);
+    setTripForm(p => ({ ...p, clientId, clientName: c?.name ?? '' }));
   };
   const handleTripDriverChange = (driverId: string) => {
-    const driver = drivers.find(d => d.id === driverId);
-    setTripForm(prev => ({ ...prev, driverId, driverName: driver?.fullName ?? '' }));
+    const d = drivers.find(d => d.id === driverId);
+    setTripForm(p => ({ ...p, driverId, driverName: d?.fullName ?? '' }));
   };
   const handleTripVehicleChange = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    setTripForm(prev => ({ ...prev, vehicleId, vehicleUnit: vehicle?.unitNumber ?? '' }));
+    const v = vehicles.find(v => v.id === vehicleId);
+    setTripForm(p => ({ ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '' }));
   };
   const advanceStatus = (trip: Trip) => {
     const idx = TRIP_FLOW.indexOf(trip.status);
     if (idx < TRIP_FLOW.length - 1) updateTripStatus(trip.id, TRIP_FLOW[idx + 1]);
   };
 
-  // ─── Cotizaciones handlers ──────────────────────────────────────────────────
+  // ─── Cotizaciones ──────────────────────────────────────────────────────────
 
   const filteredQuotes = quotes.filter((q) => {
     const matchSearch =
@@ -113,28 +113,47 @@ export default function TripsPage() {
       q.clientName.toLowerCase().includes(search.toLowerCase()) ||
       q.origin.toLowerCase().includes(search.toLowerCase()) ||
       q.destination.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || q.status === statusFilter;
-    return matchSearch && matchStatus;
+    return matchSearch && (statusFilter === 'all' || q.status === statusFilter);
   });
 
-  const openAddQuote = () => { setQuoteForm(EMPTY_QUOTE); setEditingQuoteId(null); setQuoteModalOpen(true); };
+  const openAddQuote = () => {
+    setQuoteForm(EMPTY_QUOTE);
+    setEditingQuoteId(null);
+    setGuestClient(false);
+    setQuoteModalOpen(true);
+  };
   const openEditQuote = (q: Quote) => {
     const { id, quoteNumber, createdAt, ...rest } = q;
-    setQuoteForm(rest); setEditingQuoteId(id); setQuoteModalOpen(true);
+    setQuoteForm(rest);
+    setEditingQuoteId(id);
+    // Si no tiene clientId era un cliente no registrado
+    setGuestClient(!q.clientId);
+    setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
-    if (editingQuoteId) updateQuote(editingQuoteId, quoteForm);
-    else addQuote(quoteForm);
+    if (editingQuoteId) updateQuote(editingQuoteId, quoteForm); else addQuote(quoteForm);
     setQuoteModalOpen(false);
   };
   const fq = (key: keyof typeof quoteForm, val: string | number) =>
-    setQuoteForm((prev) => ({ ...prev, [key]: val }));
+    setQuoteForm((p) => ({ ...p, [key]: val }));
   const handleQuoteClientChange = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    setQuoteForm(prev => ({ ...prev, clientId, clientName: client?.name ?? '' }));
+    const c = clients.find(c => c.id === clientId);
+    setQuoteForm(p => ({ ...p, clientId, clientName: c?.name ?? '' }));
   };
 
-  // Convertir cotización aprobada en viaje
+  // Cambiar entre cliente registrado / no registrado
+  const toggleGuestClient = (isGuest: boolean) => {
+    setGuestClient(isGuest);
+    setQuoteForm(p => ({
+      ...p,
+      clientId: '',
+      clientName: '',
+      guestClientPhone: '',
+      guestClientEmail: '',
+    }));
+  };
+
+  // Convertir cotización en viaje
   const convertToTrip = (q: Quote) => {
     addTrip({
       clientId: q.clientId,
@@ -157,8 +176,9 @@ export default function TripsPage() {
     setSearch('');
   };
 
-  // ─── Cambio de pestaña: reset filtros ──────────────────────────────────────
   const switchTab = (t: Tab) => { setTab(t); setSearch(''); setStatusFilter('all'); };
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-5">
@@ -171,9 +191,7 @@ export default function TripsPage() {
           <div>
             <h1 className="text-xl font-bold text-white">Viajes & Despacho</h1>
             <p className="text-sm text-slate-400">
-              {tab === 'trips'
-                ? `${trips.length} viajes registrados`
-                : `${quotes.length} cotizaciones registradas`}
+              {tab === 'trips' ? `${trips.length} viajes registrados` : `${quotes.length} cotizaciones registradas`}
             </p>
           </div>
         </div>
@@ -188,34 +206,23 @@ export default function TripsPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-800 border border-slate-700/50 rounded-xl w-fit">
-        <button
-          onClick={() => switchTab('trips')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'trips'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Map className="w-4 h-4" />
-          Viajes
-          <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === 'trips' ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'}`}>
-            {trips.length}
-          </span>
-        </button>
-        <button
-          onClick={() => switchTab('quotes')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'quotes'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Cotizaciones
-          <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === 'quotes' ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'}`}>
-            {quotes.length}
-          </span>
-        </button>
+        {(['trips', 'quotes'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => switchTab(t)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {t === 'trips' ? <Map className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+            {t === 'trips' ? 'Viajes' : 'Cotizaciones'}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              tab === t ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'
+            }`}>
+              {t === 'trips' ? trips.length : quotes.length}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Filtros */}
@@ -235,13 +242,9 @@ export default function TripsPage() {
           className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white focus:outline-none"
         >
           <option value="all">Todos los estados</option>
-          {tab === 'trips'
-            ? Object.entries(TRIP_STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))
-            : Object.entries(QUOTE_STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
+          {Object.entries(tab === 'trips' ? TRIP_STATUS_LABELS : QUOTE_STATUS_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
         </select>
       </div>
 
@@ -280,12 +283,8 @@ export default function TripsPage() {
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(trip.rate)}</p>
                       <div className="flex items-center gap-1">
                         {canAdvance && (
-                          <button
-                            onClick={() => advanceStatus(trip)}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
-                          >
-                            <ChevronRight className="w-3.5 h-3.5" />
-                            Avanzar
+                          <button onClick={() => advanceStatus(trip)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
+                            <ChevronRight className="w-3.5 h-3.5" /> Avanzar
                           </button>
                         )}
                         <button onClick={() => openEditTrip(trip)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
@@ -309,6 +308,7 @@ export default function TripsPage() {
             {filteredQuotes.map((quote) => {
               const s = QUOTE_STATUS_LABELS[quote.status];
               const canConvert = quote.status === 'approved' || quote.status === 'sent';
+              const isGuest = !quote.clientId;
               return (
                 <div key={quote.id} className="bg-slate-800 border border-slate-700/50 rounded-xl p-4 hover:border-slate-600 transition-colors">
                   <div className="flex items-start gap-4">
@@ -316,6 +316,11 @@ export default function TripsPage() {
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-bold text-white text-sm">{quote.quoteNumber}</span>
                         <StatusBadge colorClass={s.color} label={s.label} />
+                        {isGuest && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 border border-slate-600">
+                            <UserX className="w-3 h-3" /> Prospecto
+                          </span>
+                        )}
                         <span className="text-xs text-slate-400 ml-auto">
                           Válida hasta: <span className="text-slate-300">{formatDate(quote.validUntil)}</span>
                         </span>
@@ -327,67 +332,41 @@ export default function TripsPage() {
                       </div>
                       <div className="flex flex-wrap gap-4 text-xs text-slate-400">
                         <span>Cliente: <span className="text-slate-300">{quote.clientName}</span></span>
+                        {quote.guestClientPhone && <span>Tel: <span className="text-slate-300">{quote.guestClientPhone}</span></span>}
+                        {quote.guestClientEmail && <span>Email: <span className="text-slate-300">{quote.guestClientEmail}</span></span>}
                         <span>Carga: <span className="text-slate-300">{quote.cargoDescription}</span></span>
                         <span>Peso: <span className="text-slate-300">{quote.cargoWeightKg.toLocaleString('es-MX')} kg</span></span>
                         <span>Distancia: <span className="text-slate-300">{quote.distanceKm} km</span></span>
                         <span>Remolque: <span className="text-slate-300">{quote.trailerType}</span></span>
                       </div>
-                      {quote.notes && (
-                        <p className="text-xs text-slate-500 mt-1.5 italic">{quote.notes}</p>
-                      )}
+                      {quote.notes && <p className="text-xs text-slate-500 mt-1.5 italic">{quote.notes}</p>}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(quote.proposedRate)}</p>
                       <div className="flex items-center gap-1">
-                        {/* Acciones de estado */}
                         {quote.status === 'draft' && (
-                          <button
-                            onClick={() => updateQuoteStatus(quote.id, 'sent')}
-                            title="Marcar como Enviada"
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            Enviar
+                          <button onClick={() => updateQuoteStatus(quote.id, 'sent')} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
+                            <Send className="w-3.5 h-3.5" /> Enviar
                           </button>
                         )}
                         {quote.status === 'sent' && (
                           <>
-                            <button
-                              onClick={() => updateQuoteStatus(quote.id, 'approved')}
-                              title="Aprobar cotización"
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-600/30 transition-colors"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Aprobar
+                            <button onClick={() => updateQuoteStatus(quote.id, 'approved')} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-600/30 transition-colors">
+                              <CheckCircle className="w-3.5 h-3.5" /> Aprobar
                             </button>
-                            <button
-                              onClick={() => updateQuoteStatus(quote.id, 'rejected')}
-                              title="Rechazar cotización"
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded-lg hover:bg-rose-600/30 transition-colors"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              Rechazar
+                            <button onClick={() => updateQuoteStatus(quote.id, 'rejected')} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded-lg hover:bg-rose-600/30 transition-colors">
+                              <XCircle className="w-3.5 h-3.5" /> Rechazar
                             </button>
                           </>
                         )}
                         {quote.status === 'rejected' && (
-                          <button
-                            onClick={() => updateQuoteStatus(quote.id, 'draft')}
-                            title="Reabrir como borrador"
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-400 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Reabrir
+                          <button onClick={() => updateQuoteStatus(quote.id, 'draft')} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-400 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
+                            <RotateCcw className="w-3.5 h-3.5" /> Reabrir
                           </button>
                         )}
                         {canConvert && (
-                          <button
-                            onClick={() => convertToTrip(quote)}
-                            title="Convertir en viaje"
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-600/30 transition-colors"
-                          >
-                            <Map className="w-3.5 h-3.5" />
-                            → Viaje
+                          <button onClick={() => convertToTrip(quote)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-600/30 transition-colors">
+                            <Map className="w-3.5 h-3.5" /> → Viaje
                           </button>
                         )}
                         <button onClick={() => openEditQuote(quote)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
@@ -467,12 +446,69 @@ export default function TripsPage() {
       {/* ══ MODAL COTIZACIÓN ════════════════════════════════════════════════════ */}
       <Modal isOpen={quoteModalOpen} onClose={() => setQuoteModalOpen(false)} title={editingQuoteId ? 'Editar Cotización' : 'Nueva Cotización'} size="xl">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Cliente" required className="col-span-2">
-            <Select value={quoteForm.clientId} onChange={(e) => handleQuoteClientChange(e.target.value)}>
-              <option value="">Seleccionar cliente...</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </FormField>
+
+          {/* Toggle cliente registrado / prospecto */}
+          <div className="col-span-2">
+            <div className="flex gap-2 p-1 bg-slate-700/40 border border-slate-600/50 rounded-lg w-fit">
+              <button
+                type="button"
+                onClick={() => toggleGuestClient(false)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  !guestClient ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                Cliente registrado
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleGuestClient(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  guestClient ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <UserX className="w-3.5 h-3.5" />
+                Prospecto / Sin registro
+              </button>
+            </div>
+          </div>
+
+          {/* Campos de cliente */}
+          {!guestClient ? (
+            <FormField label="Cliente" required className="col-span-2">
+              <Select value={quoteForm.clientId} onChange={(e) => handleQuoteClientChange(e.target.value)}>
+                <option value="">Seleccionar cliente...</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </FormField>
+          ) : (
+            <>
+              <FormField label="Nombre del Prospecto" required className="col-span-2">
+                <Input
+                  value={quoteForm.clientName}
+                  onChange={(e) => fq('clientName', e.target.value)}
+                  placeholder="Empresa o persona interesada"
+                />
+              </FormField>
+              <FormField label="Teléfono de Contacto">
+                <Input
+                  value={quoteForm.guestClientPhone ?? ''}
+                  onChange={(e) => fq('guestClientPhone', e.target.value)}
+                  placeholder="+52 55 1234 5678"
+                />
+              </FormField>
+              <FormField label="Email de Contacto">
+                <Input
+                  type="email"
+                  value={quoteForm.guestClientEmail ?? ''}
+                  onChange={(e) => fq('guestClientEmail', e.target.value)}
+                  placeholder="contacto@empresa.com"
+                />
+              </FormField>
+            </>
+          )}
+
+          {/* Resto del formulario */}
           <FormField label="Origen" required>
             <Input value={quoteForm.origin} onChange={(e) => fq('origin', e.target.value)} placeholder="Monterrey, NL" />
           </FormField>

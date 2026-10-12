@@ -82,8 +82,12 @@ export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected';
 export interface Quote {
   id: string;
   quoteNumber: string;
+  /** Vacío cuando el cliente no está registrado en el sistema */
   clientId: string;
   clientName: string;
+  /** Datos adicionales para clientes no registrados */
+  guestClientPhone?: string;
+  guestClientEmail?: string;
   origin: string;
   destination: string;
   cargoDescription: string;
