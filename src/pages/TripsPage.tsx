@@ -96,6 +96,7 @@ export default function TripsPage() {
   const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>>(EMPTY_QUOTE);
   const [guestClient, setGuestClient] = useState(false);
   const [kmError, setKmError] = useState('');
+  const [quoteMargin, setQuoteMargin] = useState(20);
 
   // ─── Costo/km de la unidad seleccionada en la cotización ──────────────────
   const quoteCostPerKm = useMemo(() => {
@@ -103,7 +104,8 @@ export default function TripsPage() {
     return calcCostPerKm(quoteForm.vehicleId, trips, expenses, maintenances);
   }, [quoteForm.vehicleId, trips, expenses, maintenances]);
 
-  const quoteMinRate = quoteCostPerKm * quoteForm.distanceKm;
+  // Tarifa sugerida = costo/km × (1 + margen%) × distancia
+  const quoteSuggestedRate = quoteCostPerKm * (1 + quoteMargin / 100) * quoteForm.distanceKm;
   const hasVehicleCost = quoteCostPerKm > 0 && quoteForm.distanceKm >= MIN_KM;
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
@@ -161,6 +163,7 @@ export default function TripsPage() {
     setEditingQuoteId(null);
     setGuestClient(false);
     setKmError('');
+    setQuoteMargin(20);
     setQuoteModalOpen(true);
   };
   const openEditQuote = (q: Quote) => {
@@ -169,6 +172,7 @@ export default function TripsPage() {
     setEditingQuoteId(id);
     setGuestClient(!q.clientId);
     setKmError('');
+    setQuoteMargin(20);
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
@@ -536,38 +540,69 @@ export default function TripsPage() {
             </Select>
           </FormField>
 
-          {/* Panel costo/km — se muestra sólo cuando hay unidad seleccionada */}
+          {/* Panel costo/km con margen y botón "Usar tarifa sugerida" */}
           {quoteForm.vehicleId && (
             <div className="col-span-2">
               {quoteCostPerKm > 0 ? (
-                <div className="grid grid-cols-3 gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Calculator className="w-3.5 h-3.5 text-amber-400" />
-                      <p className="text-xs text-amber-300/80">Costo / km</p>
+                <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-3">
+                  {/* Métricas */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <Calculator className="w-3.5 h-3.5 text-amber-400" />
+                        <p className="text-xs text-amber-300/80">Costo / km</p>
+                      </div>
+                      <p className="text-lg font-bold text-amber-400">${quoteCostPerKm.toFixed(2)}</p>
+                      <p className="text-xs text-slate-500">histórico {quoteForm.vehicleUnit}</p>
                     </div>
-                    <p className="text-lg font-bold text-amber-400">${quoteCostPerKm.toFixed(2)}</p>
-                    <p className="text-xs text-slate-500">histórico {quoteForm.vehicleUnit}</p>
+                    <div className="text-center border-x border-amber-500/10">
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <Truck className="w-3.5 h-3.5 text-slate-400" />
+                        <p className="text-xs text-slate-400">Distancia</p>
+                      </div>
+                      <p className="text-lg font-bold text-white">
+                        {quoteForm.distanceKm >= MIN_KM ? `${quoteForm.distanceKm} km` : '— km'}
+                      </p>
+                      <p className="text-xs text-slate-500">mín. {MIN_KM} km</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <Calculator className="w-3.5 h-3.5 text-emerald-400" />
+                        <p className="text-xs text-emerald-300/80">Tarifa sugerida (+{quoteMargin}%)</p>
+                      </div>
+                      <p className={`text-lg font-bold ${hasVehicleCost ? 'text-emerald-400' : 'text-slate-600'}`}>
+                        {hasVehicleCost ? formatCurrency(quoteSuggestedRate) : '—'}
+                      </p>
+                      <p className="text-xs text-slate-500">costo/km × margen × km</p>
+                    </div>
                   </div>
-                  <div className="text-center border-x border-amber-500/10">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Truck className="w-3.5 h-3.5 text-slate-400" />
-                      <p className="text-xs text-slate-400">Distancia</p>
-                    </div>
-                    <p className="text-lg font-bold text-white">
-                      {quoteForm.distanceKm >= MIN_KM ? `${quoteForm.distanceKm} km` : '— km'}
-                    </p>
-                    <p className="text-xs text-slate-500">mín. {MIN_KM} km</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-                      <p className="text-xs text-emerald-300/80">Tarifa mínima</p>
-                    </div>
-                    <p className={`text-lg font-bold ${ hasVehicleCost ? 'text-emerald-400' : 'text-slate-600' }`}>
-                      {hasVehicleCost ? formatCurrency(quoteMinRate) : '—'}
-                    </p>
-                    <p className="text-xs text-slate-500">sin margen de ganancia</p>
+                  {/* Control de margen + botón aplicar */}
+                  <div className="flex items-center gap-3 pt-2 border-t border-amber-500/10">
+                    <span className="text-xs text-slate-400 shrink-0">Margen:</span>
+                    <input
+                      type="range"
+                      min={0} max={100}
+                      value={quoteMargin}
+                      onChange={(e) => setQuoteMargin(+e.target.value)}
+                      className="flex-1 h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <input
+                      type="number"
+                      min={0} max={200}
+                      value={quoteMargin}
+                      onChange={(e) => setQuoteMargin(Math.max(0, +e.target.value))}
+                      className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="text-xs text-slate-400">%</span>
+                    {hasVehicleCost && (
+                      <button
+                        type="button"
+                        onClick={() => fq('proposedRate', Math.round(quoteSuggestedRate))}
+                        className="shrink-0 px-3 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
+                      >
+                        Usar tarifa sugerida
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
