@@ -5,6 +5,7 @@ import { useExpensesStore } from '../store/useExpensesStore';
 import { useDriversStore } from '../store/useDriversStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
+import { useInsuranceStore } from '../store/useInsuranceStore';
 import PageHeader from '../components/ui/PageHeader';
 import { formatCurrency } from '../utils/formatters';
 import {
@@ -12,11 +13,38 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import { EXPENSE_CATEGORIES } from '../constants';
-import { ExpenseCategory } from '../types';
+import { ExpenseCategory, InsurancePolicy, Trip } from '../types';
 
 const COLORS = ['#3b82f6', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6', '#64748b'];
 
 type ReportTab = 'general' | 'vehicles';
+
+// ─── Helper: costo diario de seguro proporcional al período de operación ──────
+// Usa la prima anual de la póliza activa (vehicleId) y los días entre el primer
+// y el último viaje de la unidad como proxy del período operado.
+
+function insuranceCostForVehicle(
+  vehicleId: string,
+  vTrips: Trip[],
+  policies: InsurancePolicy[],
+): number {
+  const policy = policies.find(p => p.vehicleId === vehicleId);
+  if (!policy || vTrips.length === 0) return 0;
+
+  const dailyRate = policy.annualPremium / 365;
+
+  // Período operado = desde el primer viaje hasta el último (mínimo 1 día)
+  const dates = vTrips
+    .map(t => new Date(t.departureDate).getTime())
+    .filter(d => !isNaN(d));
+  if (dates.length === 0) return 0;
+
+  const minDate = Math.min(...dates);
+  const maxDate = Math.max(...dates);
+  const operationDays = Math.max(1, Math.round((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1);
+
+  return dailyRate * operationDays;
+}
 
 // ─── Helper: costo/km por unidad ─────────────────────────────────────────────
 
@@ -26,6 +54,7 @@ function vehicleMetrics(
   trips: ReturnType<typeof useTripsStore.getState>['trips'],
   expenses: ReturnType<typeof useExpensesStore.getState>['expenses'],
   maintenances: ReturnType<typeof useMaintenanceStore.getState>['maintenances'],
+  policies: InsurancePolicy[],
 ) {
   const vTrips = trips.filter(t => t.vehicleId === vehicleId);
   const totalKm = vTrips.reduce((s, t) => s + (t.distanceKm ?? 0), 0);
@@ -37,7 +66,8 @@ function vehicleMetrics(
   const maintCost = maintenances
     .filter(m => m.vehicleId === vehicleId)
     .reduce((s, m) => s + m.cost, 0);
-  const totalCosts = tripExpenses + maintCost;
+  const insuranceCost = insuranceCostForVehicle(vehicleId, vTrips, policies);
+  const totalCosts = tripExpenses + maintCost + insuranceCost;
   const costPerKm = totalKm > 0 ? totalCosts / totalKm : 0;
   const revenuePerKm = totalKm > 0 ? totalRevenue / totalKm : 0;
   const profit = totalRevenue - totalCosts;
@@ -45,7 +75,7 @@ function vehicleMetrics(
   return {
     unit: vehicleUnit, vehicleId,
     trips: vTrips.length,
-    totalKm, totalRevenue, totalCosts, tripExpenses, maintCost,
+    totalKm, totalRevenue, totalCosts, tripExpenses, maintCost, insuranceCost,
     costPerKm, revenuePerKm, profit, margin,
   };
 }
@@ -56,6 +86,7 @@ export default function ReportsPage() {
   const { drivers } = useDriversStore();
   const { vehicles } = useVehiclesStore();
   const { maintenances } = useMaintenanceStore();
+  const { policies } = useInsuranceStore();
 
   const [reportTab, setReportTab] = useState<ReportTab>('general');
 
@@ -86,7 +117,7 @@ export default function ReportsPage() {
   // ─── Por Unidad ────────────────────────────────────────────────────────────
 
   const vehicleStats = vehicles.map(v =>
-    vehicleMetrics(v.id, v.unitNumber, trips, expenses, maintenances)
+    vehicleMetrics(v.id, v.unitNumber, trips, expenses, maintenances, policies)
   ).sort((a, b) => b.totalRevenue - a.totalRevenue);
 
   const vehicleBarData = vehicleStats.map(v => ({
@@ -301,7 +332,7 @@ export default function ReportsPage() {
                   <tr className="border-b border-slate-700">
                     {[
                       'Unidad', 'Viajes', 'Km Totales', 'Ingresos', 'Gastos Ruta',
-                      'Mantenimiento', 'Costo Total', 'Costo / km', 'Tarifa / km', 'Margen',
+                      'Mantenimiento', 'Seguro', 'Costo Total', 'Costo / km', 'Tarifa / km', 'Margen',
                     ].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
@@ -318,6 +349,9 @@ export default function ReportsPage() {
                       <td className="px-4 py-3 text-emerald-400 font-medium">{formatCurrency(v.totalRevenue)}</td>
                       <td className="px-4 py-3 text-rose-400">{formatCurrency(v.tripExpenses)}</td>
                       <td className="px-4 py-3 text-amber-400">{formatCurrency(v.maintCost)}</td>
+                      <td className="px-4 py-3 text-violet-400">
+                        {v.insuranceCost > 0 ? formatCurrency(v.insuranceCost) : <span className="text-slate-600">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-rose-400 font-medium">{formatCurrency(v.totalCosts)}</td>
                       <td className="px-4 py-3">
                         {v.costPerKm > 0 ? (
