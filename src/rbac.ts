@@ -11,6 +11,7 @@ export interface Permission {
   viewReports: boolean;
   manageUsers: boolean;
   manageSettings: boolean;
+  viewAccounting: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, Permission> = {
@@ -25,6 +26,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission> = {
     viewReports: true,
     manageUsers: true,
     manageSettings: true,
+    viewAccounting: true,
   },
   dispatcher: {
     viewDashboard: true,
@@ -37,6 +39,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission> = {
     viewReports: false,
     manageUsers: false,
     manageSettings: false,
+    viewAccounting: false,
   },
   operator: {
     viewDashboard: true,
@@ -49,6 +52,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission> = {
     viewReports: false,
     manageUsers: false,
     manageSettings: false,
+    viewAccounting: false,
   },
   finance: {
     viewDashboard: true,
@@ -61,6 +65,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission> = {
     viewReports: true,
     manageUsers: false,
     manageSettings: false,
+    viewAccounting: true,
   },
   viewer: {
     viewDashboard: true,
@@ -73,6 +78,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission> = {
     viewReports: true,
     manageUsers: false,
     manageSettings: false,
+    viewAccounting: false,
   },
 };
 

@@ -2,22 +2,24 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, Truck, Map, Receipt,
   Wrench, BarChart3, Shield, Settings, TruckIcon, ChevronLeft, ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useAuthStore } from '../store/useAuthStore';
 import { hasPermission } from '../rbac';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', permission: 'viewDashboard' as const },
-  { to: '/trips', icon: Map, label: 'Viajes', permission: 'manageTrips' as const },
-  { to: '/clients', icon: Users, label: 'Clientes', permission: 'manageClients' as const },
-  { to: '/drivers', icon: UserCheck, label: 'Operadores', permission: 'manageDrivers' as const },
-  { to: '/vehicles', icon: Truck, label: 'Unidades', permission: 'manageVehicles' as const },
-  { to: '/expenses', icon: Receipt, label: 'Gastos', permission: 'manageExpenses' as const },
-  { to: '/maintenance', icon: Wrench, label: 'Mantenimientos', permission: 'manageMaintenance' as const },
-  { to: '/reports', icon: BarChart3, label: 'Reportes', permission: 'viewReports' as const },
-  { to: '/users', icon: Shield, label: 'Usuarios', permission: 'manageUsers' as const },
-  { to: '/settings', icon: Settings, label: 'Configuración', permission: 'manageSettings' as const },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',       permission: 'viewDashboard'  as const },
+  { to: '/trips',      icon: Map,             label: 'Viajes',          permission: 'manageTrips'    as const },
+  { to: '/clients',    icon: Users,           label: 'Clientes',        permission: 'manageClients'  as const },
+  { to: '/drivers',    icon: UserCheck,       label: 'Operadores',      permission: 'manageDrivers'  as const },
+  { to: '/vehicles',   icon: Truck,           label: 'Unidades',        permission: 'manageVehicles' as const },
+  { to: '/expenses',   icon: Receipt,         label: 'Gastos',          permission: 'manageExpenses' as const },
+  { to: '/maintenance',icon: Wrench,          label: 'Mantenimientos',  permission: 'manageMaintenance' as const },
+  { to: '/accounting', icon: BookOpen,        label: 'Contabilidad',    permission: 'viewAccounting' as const },
+  { to: '/reports',    icon: BarChart3,       label: 'Reportes',        permission: 'viewReports'    as const },
+  { to: '/users',      icon: Shield,          label: 'Usuarios',        permission: 'manageUsers'    as const },
+  { to: '/settings',   icon: Settings,        label: 'Configuración',   permission: 'manageSettings' as const },
 ];
 
 interface SidebarProps {
