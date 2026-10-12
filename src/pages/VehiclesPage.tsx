@@ -15,6 +15,17 @@ const TRAILER_TYPES: TrailerType[] = [
   'Dry Van (Caja Seca)', 'Reefer (Refrigerado)', 'Flatbed (Plataforma)', 'Tanker (Pipa)', 'Lowboy',
 ];
 
+function generateUnitNumber(vehicles: Vehicle[]): string {
+  const numbers = vehicles
+    .map((v) => {
+      const match = v.unitNumber.match(/^TR-(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter((n) => n > 0);
+  const next = numbers.length > 0 ? Math.max(...numbers) + 1 : 101;
+  return `TR-${next}`;
+}
+
 const EMPTY_VEHICLE: Omit<Vehicle, 'id'> = {
   unitNumber: '', plate: '', brand: '', model: '', year: new Date().getFullYear(),
   trailerType: 'Dry Van (Caja Seca)', odometer: 0, fuelType: 'Diesel',
@@ -37,7 +48,11 @@ export default function VehiclesPage() {
     return matchSearch && matchStatus;
   });
 
-  const openAdd = () => { setForm(EMPTY_VEHICLE); setEditingId(null); setIsModalOpen(true); };
+  const openAdd = () => {
+    setForm({ ...EMPTY_VEHICLE, unitNumber: generateUnitNumber(vehicles) });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
   const openEdit = (v: Vehicle) => {
     const { id, ...rest } = v;
     setForm(rest); setEditingId(id); setIsModalOpen(true);
@@ -133,8 +148,20 @@ export default function VehiclesPage() {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? 'Editar Unidad' : 'Nueva Unidad'} size="lg">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Número de Unidad" required>
-            <Input value={form.unitNumber} onChange={(e) => f('unitNumber', e.target.value)} placeholder="TR-105" />
+          <FormField label="Número de Unidad">
+            <div className="relative">
+              <Input
+                value={form.unitNumber}
+                onChange={(e) => { if (editingId) f('unitNumber', e.target.value); }}
+                readOnly={!editingId}
+                className={!editingId ? 'bg-slate-700 text-slate-300 cursor-default select-none' : ''}
+              />
+              {!editingId && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                  Auto
+                </span>
+              )}
+            </div>
           </FormField>
           <FormField label="Placa" required>
             <Input value={form.plate} onChange={(e) => f('plate', e.target.value)} placeholder="XX-00-XY" />
