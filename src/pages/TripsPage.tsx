@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
   FileText, Plus, CheckCircle, Send, XCircle, RotateCcw,
-  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Clock,
+  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt,
 } from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
 import { useQuotesStore } from '../store/useQuotesStore';
@@ -68,6 +68,13 @@ function calcCostPerKm(
   return (totalExpenses + maintenanceCost) / totalKm;
 }
 
+// ─── Helper: tarifa sugerida a partir de costo/km ────────────────────────────
+
+function suggestedRate(costPerKm: number, margin: number, distanceKm: number): number {
+  if (costPerKm <= 0 || distanceKm < MIN_KM) return 0;
+  return Math.round(costPerKm * (1 + margin / 100) * distanceKm);
+}
+
 // ─── Sub-componente: Panel de detalle de viaje ────────────────────────────────
 
 function TripDetailPanel({ trip }: { trip: Trip }) {
@@ -120,8 +127,6 @@ function TripDetailPanel({ trip }: { trip: Trip }) {
             }`}>{margin.toFixed(1)}% margen</span>
           </div>
         )}
-
-        {/* Datos del viaje */}
         <div className="space-y-1.5 pt-1">
           {trip.distanceKm > 0 && (
             <div className="flex justify-between text-xs">
@@ -185,7 +190,6 @@ function TripDetailPanel({ trip }: { trip: Trip }) {
                 <p className="text-xs font-semibold text-rose-400 ml-2 shrink-0">{formatCurrency(exp.amount)}</p>
               </div>
             ))}
-            {/* Desglose por categoría */}
             {byCategory.length > 1 && (
               <div className="pt-1 mt-1 border-t border-slate-700/50 space-y-1">
                 {byCategory.map(cat => (
@@ -238,7 +242,7 @@ export default function TripsPage() {
     return calcCostPerKm(quoteForm.vehicleId, trips, expenses, maintenances);
   }, [quoteForm.vehicleId, trips, expenses, maintenances]);
 
-  const quoteSuggestedRate = quoteCostPerKm * (1 + quoteMargin / 100) * quoteForm.distanceKm;
+  const quoteSuggestedRate = suggestedRate(quoteCostPerKm, quoteMargin, quoteForm.distanceKm);
   const hasVehicleCost = quoteCostPerKm > 0 && quoteForm.distanceKm >= MIN_KM;
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
@@ -321,14 +325,38 @@ export default function TripsPage() {
     const c = clients.find(c => c.id === clientId);
     setQuoteForm(p => ({ ...p, clientId, clientName: c?.name ?? '' }));
   };
+
+  // Al cambiar unidad: recalcular costo/km con el nuevo vehicleId y auto-llenar tarifa
   const handleQuoteVehicleChange = (vehicleId: string) => {
     const v = vehicles.find(v => v.id === vehicleId);
-    setQuoteForm(p => ({ ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '' }));
+    const costPerKm = vehicleId ? calcCostPerKm(vehicleId, trips, expenses, maintenances) : 0;
+    const rate = suggestedRate(costPerKm, quoteMargin, quoteForm.distanceKm);
+    setQuoteForm(p => ({
+      ...p,
+      vehicleId,
+      vehicleUnit: v?.unitNumber ?? '',
+      ...(rate > 0 ? { proposedRate: rate } : {}),
+    }));
   };
+
+  // Al cambiar distancia: recalcular tarifa sugerida con el costo/km actual y auto-llenar
   const handleQuoteKmChange = (val: number) => {
     setKmError(val > 0 && val < MIN_KM ? `La distancia mínima es ${MIN_KM} km.` : '');
-    fq('distanceKm', val);
+    const rate = suggestedRate(quoteCostPerKm, quoteMargin, val);
+    setQuoteForm(p => ({
+      ...p,
+      distanceKm: val,
+      ...(rate > 0 ? { proposedRate: rate } : {}),
+    }));
   };
+
+  // Al cambiar margen: recalcular y auto-llenar tarifa
+  const handleMarginChange = (margin: number) => {
+    setQuoteMargin(margin);
+    const rate = suggestedRate(quoteCostPerKm, margin, quoteForm.distanceKm);
+    if (rate > 0) fq('proposedRate', rate);
+  };
+
   const toggleGuestClient = (isGuest: boolean) => {
     setGuestClient(isGuest);
     setQuoteForm(p => ({ ...p, clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '' }));
@@ -439,7 +467,6 @@ export default function TripsPage() {
                   isExpanded ? 'border-blue-500/40' : 'border-slate-700/50 hover:border-slate-600'
                 }`}>
                   <div className="flex items-start gap-4">
-                    {/* Toggle expand */}
                     <button
                       onClick={() => toggleExpand(trip.id)}
                       className="mt-0.5 p-1 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
@@ -447,7 +474,6 @@ export default function TripsPage() {
                     >
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-bold text-white text-sm">{trip.tripNumber}</span>
@@ -486,8 +512,6 @@ export default function TripsPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Panel de detalle expandible */}
                   {isExpanded && <TripDetailPanel trip={trip} />}
                 </div>
               );
@@ -722,28 +746,20 @@ export default function TripsPage() {
                       <p className={`text-lg font-bold ${hasVehicleCost ? 'text-emerald-400' : 'text-slate-600'}`}>
                         {hasVehicleCost ? formatCurrency(quoteSuggestedRate) : '—'}
                       </p>
-                      <p className="text-xs text-slate-500">costo/km × margen × km</p>
+                      <p className="text-xs text-slate-500">aplicada automáticamente</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 pt-2 border-t border-amber-500/10">
                     <span className="text-xs text-slate-400 shrink-0">Margen:</span>
                     <input type="range" min={0} max={100} value={quoteMargin}
-                      onChange={(e) => setQuoteMargin(+e.target.value)}
+                      onChange={(e) => handleMarginChange(+e.target.value)}
                       className="flex-1 h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
                     />
                     <input type="number" min={0} max={200} value={quoteMargin}
-                      onChange={(e) => setQuoteMargin(Math.max(0, +e.target.value))}
+                      onChange={(e) => handleMarginChange(Math.max(0, +e.target.value))}
                       className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
                     />
                     <span className="text-xs text-slate-400">%</span>
-                    {hasVehicleCost && (
-                      <button type="button"
-                        onClick={() => fq('proposedRate', Math.round(quoteSuggestedRate))}
-                        className="shrink-0 px-3 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
-                      >
-                        Usar tarifa sugerida
-                      </button>
-                    )}
                   </div>
                 </div>
               ) : (
