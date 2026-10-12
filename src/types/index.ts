@@ -77,6 +77,26 @@ export interface Trip {
   notes?: string;
 }
 
+export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected';
+
+export interface Quote {
+  id: string;
+  quoteNumber: string;
+  clientId: string;
+  clientName: string;
+  origin: string;
+  destination: string;
+  cargoDescription: string;
+  cargoWeightKg: number;
+  distanceKm: number;
+  trailerType: TrailerType;
+  proposedRate: number;
+  validUntil: string;
+  status: QuoteStatus;
+  notes?: string;
+  createdAt: string;
+}
+
 export type ExpenseCategory = 'fuel' | 'toll' | 'viatics' | 'maintenance' | 'fine' | 'other';
 
 export interface Expense {
