@@ -88,6 +88,9 @@ export interface Quote {
   /** Datos adicionales para clientes no registrados */
   guestClientPhone?: string;
   guestClientEmail?: string;
+  /** Unidad de referencia para calcular costo/km (opcional) */
+  vehicleId?: string;
+  vehicleUnit?: string;
   origin: string;
   destination: string;
   cargoDescription: string;
