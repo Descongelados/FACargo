@@ -59,6 +59,9 @@ const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number 
   'Gas LP':   { pricePerLiter: 12.00, kmPerLiter: 3.0 },
 };
 
+/** Km promedio por día asumidos para el calculador (para expresar seguro en $/km) */
+const KM_PER_DAY_ASSUMPTION = 400;
+
 /** Días hasta la fecha de vencimiento (negativo = ya venció) */
 function daysUntilExpiry(endDate: string): number {
   return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
@@ -90,13 +93,21 @@ export default function VehiclesPage() {
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState<Omit<InsurancePolicy, 'id'>>(EMPTY_POLICY);
 
-  // Cálculo calculador
+  // ─── Cálculos del calculador ───────────────────────────────────────────────
   const fuelCostPerKm = kmPerLiter > 0 ? pricePerLiter / kmPerLiter : 0;
-  const suggestedRatePerKm = fuelCostPerKm * (1 + margin / 100);
 
   // Seguro diario de la unidad en el calculador
   const calcPolicy = calcVehicle ? policies.find(p => p.vehicleId === calcVehicle.id) : undefined;
   const dailyInsuranceCost = calcPolicy ? calcPolicy.annualPremium / 365 : 0;
+
+  // Costo del seguro en $/km = costo diario ÷ km/día asumidos
+  const insuranceCostPerKm = dailyInsuranceCost / KM_PER_DAY_ASSUMPTION;
+
+  // Costo total / km = combustible + seguro
+  const totalCostPerKm = fuelCostPerKm + insuranceCostPerKm;
+
+  // Tarifa sugerida basada en el costo total
+  const suggestedRatePerKm = totalCostPerKm * (1 + margin / 100);
 
   // Filtrado flotilla
   const filteredVehicles = vehicles.filter((v) => {
@@ -790,11 +801,22 @@ export default function VehiclesPage() {
               </div>
             </div>
 
+            {/* ── Tarjetas de resultado ── */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                <p className="text-xs text-amber-300/70 mb-1">Costo de combustible / km</p>
-                <p className="text-3xl font-bold text-amber-400">${fuelCostPerKm.toFixed(2)}</p>
-                <p className="text-xs text-slate-500 mt-1">${pricePerLiter.toFixed(2)} ÷ {kmPerLiter} km/L</p>
+                <p className="text-xs text-amber-300/70 mb-1">Costo total / km</p>
+                <p className="text-3xl font-bold text-amber-400">${totalCostPerKm.toFixed(2)}</p>
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-xs text-slate-500">
+                    Combustible: ${fuelCostPerKm.toFixed(2)} / km
+                  </p>
+                  {calcPolicy && (
+                    <p className="text-xs text-violet-400/70">
+                      Seguro: ${insuranceCostPerKm.toFixed(2)} / km
+                      <span className="text-slate-600 ml-1">({KM_PER_DAY_ASSUMPTION} km/día)</span>
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
                 <p className="text-xs text-emerald-300/70 mb-1">Tarifa mínima (+{margin}%)</p>
