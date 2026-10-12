@@ -94,6 +94,10 @@ export default function VehiclesPage() {
   const fuelCostPerKm = kmPerLiter > 0 ? pricePerLiter / kmPerLiter : 0;
   const suggestedRatePerKm = fuelCostPerKm * (1 + margin / 100);
 
+  // Seguro diario de la unidad en el calculador
+  const calcPolicy = calcVehicle ? policies.find(p => p.vehicleId === calcVehicle.id) : undefined;
+  const dailyInsuranceCost = calcPolicy ? calcPolicy.annualPremium / 365 : 0;
+
   // Filtrado flotilla
   const filteredVehicles = vehicles.filter((v) => {
     const matchSearch =
@@ -682,6 +686,7 @@ export default function VehiclesPage() {
             </div>
 
             <div className="space-y-4">
+              {/* ── Costo de combustible ── */}
               <div className="p-4 bg-slate-700/30 border border-slate-600/50 rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <Fuel className="w-4 h-4 text-orange-400" />
@@ -718,6 +723,43 @@ export default function VehiclesPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* ── Costo del seguro ── */}
+              <div className={`p-4 rounded-xl border space-y-2 ${
+                calcPolicy
+                  ? 'bg-violet-500/5 border-violet-500/20'
+                  : 'bg-slate-700/20 border-slate-600/40'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Shield className={`w-4 h-4 ${calcPolicy ? 'text-violet-400' : 'text-slate-500'}`} />
+                  <p className={`text-sm font-medium ${calcPolicy ? 'text-white' : 'text-slate-500'}`}>
+                    Costo del seguro
+                  </p>
+                  {!calcPolicy && (
+                    <span className="ml-auto text-xs text-slate-500 italic">Sin póliza asignada</span>
+                  )}
+                </div>
+                {calcPolicy ? (
+                  <div className="grid grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Aseguradora</p>
+                      <p className="text-sm text-white font-medium">{calcPolicy.insurer}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Prima anual</p>
+                      <p className="text-sm text-white font-medium">{formatCurrency(calcPolicy.annualPremium)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Costo / día</p>
+                      <p className="text-sm font-bold text-violet-400">{formatCurrency(dailyInsuranceCost)}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 pt-0.5">
+                    Registra una póliza en la pestaña <span className="text-slate-400">Seguros</span> para ver este dato.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
