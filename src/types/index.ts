@@ -1,0 +1,119 @@
+export type Role = 'admin' | 'dispatcher' | 'operator' | 'finance' | 'viewer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  avatar?: string;
+  status: 'active' | 'inactive';
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  taxId: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: string;
+  creditDays: number;
+  creditLimit: number;
+  status: 'active' | 'inactive';
+}
+
+export type DriverStatus = 'available' | 'on_trip' | 'rest' | 'inactive';
+
+export interface Driver {
+  id: string;
+  fullName: string;
+  licenseNumber: string;
+  licenseExpiry: string;
+  phone: string;
+  emergencyContact: string;
+  status: DriverStatus;
+  assignedVehicleId?: string;
+  rating: number;
+  totalTrips: number;
+}
+
+export type VehicleStatus = 'available' | 'in_transit' | 'maintenance' | 'out_of_service';
+export type TrailerType = 'Dry Van (Caja Seca)' | 'Reefer (Refrigerado)' | 'Flatbed (Plataforma)' | 'Tanker (Pipa)' | 'Lowboy';
+
+export interface Vehicle {
+  id: string;
+  unitNumber: string;
+  plate: string;
+  brand: string;
+  model: string;
+  year: number;
+  trailerType: TrailerType;
+  odometer: number;
+  fuelType: 'Diesel' | 'Gasolina' | 'Gas LP';
+  status: VehicleStatus;
+  lastMaintenanceDate: string;
+}
+
+export type TripStatus = 'pending' | 'assigned' | 'loading' | 'in_transit' | 'delivered' | 'cancelled';
+
+export interface Trip {
+  id: string;
+  tripNumber: string;
+  clientId: string;
+  clientName: string;
+  driverId: string;
+  driverName: string;
+  vehicleId: string;
+  vehicleUnit: string;
+  origin: string;
+  destination: string;
+  cargoDescription: string;
+  cargoWeightKg: number;
+  departureDate: string;
+  deliveryDate: string;
+  rate: number;
+  status: TripStatus;
+  distanceKm: number;
+  notes?: string;
+}
+
+export type ExpenseCategory = 'fuel' | 'toll' | 'viatics' | 'maintenance' | 'fine' | 'other';
+
+export interface Expense {
+  id: string;
+  tripId?: string;
+  tripNumber?: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  date: string;
+  vendor?: string;
+  invoiceNumber?: string;
+}
+
+export type MaintenanceType = 'preventive' | 'corrective' | 'tire' | 'inspection';
+export type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed';
+
+export interface Maintenance {
+  id: string;
+  vehicleId: string;
+  vehicleUnit: string;
+  type: MaintenanceType;
+  description: string;
+  workshop: string;
+  cost: number;
+  date: string;
+  status: MaintenanceStatus;
+  nextScheduledOdometer?: number;
+}
+
+export interface DashboardMetrics {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  activeTrips: number;
+  availableVehicles: number;
+  totalVehicles: number;
+  availableDrivers: number;
+  completedTripsThisMonth: number;
+}
