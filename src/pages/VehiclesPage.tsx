@@ -151,9 +151,16 @@ export default function VehiclesPage() {
   const openCalc = (v: Vehicle) => {
     const defaults = FUEL_DEFAULTS[v.fuelType] ?? FUEL_DEFAULTS['Diesel'];
     setPricePerLiter(defaults.pricePerLiter);
-    setKmPerLiter(defaults.kmPerLiter);
+    setKmPerLiter(v.kmPerLiter ?? defaults.kmPerLiter);
     setMargin(20);
     setCalcVehicle(v);
+  };
+
+  // Guarda el rendimiento en la unidad para las siguientes consultas
+  const handleKmPerLiterChange = (value: number) => {
+    const next = Math.max(0.1, value);
+    setKmPerLiter(next);
+    if (calcVehicle) updateVehicle(calcVehicle.id, { kmPerLiter: next });
   };
 
   // ─── CRUD pólizas ──────────────────────────────────────────────────────
@@ -727,7 +734,7 @@ export default function VehiclesPage() {
                         value={kmPerLiter}
                         min={0.1}
                         step={0.1}
-                        onChange={e => setKmPerLiter(Math.max(0.1, +e.target.value))}
+                        onChange={e => handleKmPerLiterChange(+e.target.value)}
                         className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
                       />
                       <span className="text-slate-400 text-xs">km/L</span>

@@ -50,6 +50,8 @@ export interface Vehicle {
   trailerType: TrailerType;
   odometer: number;
   fuelType: 'Diesel' | 'Gasolina' | 'Gas LP';
+  /** Rendimiento (km/L) guardado desde el calculador de costo por km */
+  kmPerLiter?: number;
   status: VehicleStatus;
   lastMaintenanceDate: string;
 }
