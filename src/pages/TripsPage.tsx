@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import {
   Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
   FileText, Plus, CheckCircle, Send, XCircle, RotateCcw,
-  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt,
+  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Fuel,
 } from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
 import { useQuotesStore } from '../store/useQuotesStore';
 import { useClientsStore } from '../store/useClientsStore';
 import { useDriversStore } from '../store/useDriversStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
+import { useInsuranceStore } from '../store/useInsuranceStore';
 import { useExpensesStore } from '../store/useExpensesStore';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
 import { Trip, TripStatus, Quote, QuoteStatus, TrailerType } from '../types';
@@ -29,6 +30,13 @@ const TRAILER_TYPES: TrailerType[] = [
 ];
 
 const MIN_KM = 10;
+
+// Valores por defecto de combustible (mismos que el calculador de Flotilla)
+const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number }> = {
+  'Diesel':   { pricePerLiter: 25.00, kmPerLiter: 3.5 },
+  'Gasolina': { pricePerLiter: 22.00, kmPerLiter: 4.0 },
+  'Gas LP':   { pricePerLiter: 12.00, kmPerLiter: 3.0 },
+};
 
 const EMPTY_TRIP: Omit<Trip, 'id' | 'tripNumber'> = {
   clientId: '', clientName: '', driverId: '', driverName: '',
@@ -215,6 +223,7 @@ export default function TripsPage() {
   const { clients } = useClientsStore();
   const { drivers } = useDriversStore();
   const { vehicles } = useVehiclesStore();
+  const { policies } = useInsuranceStore();
   const { expenses } = useExpensesStore();
   const { maintenances } = useMaintenanceStore();
 
@@ -235,6 +244,8 @@ export default function TripsPage() {
   const [guestClient, setGuestClient] = useState(false);
   const [kmError, setKmError] = useState('');
   const [quoteMargin, setQuoteMargin] = useState(20);
+  // Precio por litro editado a mano (null = usar el valor por defecto del combustible)
+  const [quotePriceInput, setQuotePriceInput] = useState<number | null>(null);
 
   // ─── Costo/km de la unidad seleccionada en la cotización ──────────────────
   const quoteCostPerKm = useMemo(() => {
@@ -244,6 +255,20 @@ export default function TripsPage() {
 
   const quoteSuggestedRate = suggestedRate(quoteCostPerKm, quoteMargin, quoteForm.distanceKm);
   const hasVehicleCost = quoteCostPerKm > 0 && quoteForm.distanceKm >= MIN_KM;
+
+  // ─── Costo estimado de combustible + 1 día de seguro de la unidad ─────────
+  const quoteVehicle = vehicles.find(v => v.id === quoteForm.vehicleId);
+  const quoteFuelDefaults = quoteVehicle
+    ? (FUEL_DEFAULTS[quoteVehicle.fuelType] ?? FUEL_DEFAULTS['Diesel'])
+    : undefined;
+  const quoteKmPerLiter = quoteVehicle?.kmPerLiter ?? quoteFuelDefaults?.kmPerLiter ?? 0;
+  const quotePricePerLiter = quotePriceInput ?? quoteFuelDefaults?.pricePerLiter ?? 0;
+  const hasDistance = quoteForm.distanceKm >= MIN_KM;
+  const quoteLiters = hasDistance && quoteKmPerLiter > 0 ? quoteForm.distanceKm / quoteKmPerLiter : 0;
+  const quoteFuelCost = quoteLiters * quotePricePerLiter;
+  const quotePolicy = quoteVehicle ? policies.find(p => p.vehicleId === quoteVehicle.id) : undefined;
+  const quoteInsuranceDay = quotePolicy ? quotePolicy.annualPremium / 365 : 0;
+  const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay;
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
 
@@ -303,6 +328,7 @@ export default function TripsPage() {
     setGuestClient(false);
     setKmError('');
     setQuoteMargin(20);
+    setQuotePriceInput(null);
     setQuoteModalOpen(true);
   };
   const openEditQuote = (q: Quote) => {
@@ -312,6 +338,7 @@ export default function TripsPage() {
     setGuestClient(!q.clientId);
     setKmError('');
     setQuoteMargin(20);
+    setQuotePriceInput(null);
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
@@ -331,6 +358,7 @@ export default function TripsPage() {
     const v = vehicles.find(v => v.id === vehicleId);
     const costPerKm = vehicleId ? calcCostPerKm(vehicleId, trips, expenses, maintenances) : 0;
     const rate = suggestedRate(costPerKm, quoteMargin, quoteForm.distanceKm);
+    setQuotePriceInput(null);
     setQuoteForm(p => ({
       ...p,
       vehicleId,
@@ -772,6 +800,55 @@ export default function TripsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Costo estimado: combustible (km ÷ rendimiento × precio) + 1 día de seguro */}
+          {quoteVehicle && (
+            <div className="col-span-2 p-3 bg-slate-700/30 border border-slate-600/50 rounded-xl space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Fuel className="w-4 h-4 text-orange-400" />
+                  <p className="text-sm font-medium text-white">Costo estimado de la unidad</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Precio por litro</span>
+                  <span className="text-slate-400 text-xs">$</span>
+                  <input type="number" min={0} step={0.1} value={quotePricePerLiter}
+                    onChange={(e) => setQuotePriceInput(Math.max(0, +e.target.value))}
+                    className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Combustible</p>
+                  <p className={`text-lg font-bold ${hasDistance ? 'text-orange-400' : 'text-slate-600'}`}>
+                    {hasDistance ? formatCurrency(quoteFuelCost) : '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {hasDistance
+                      ? `${quoteLiters.toFixed(1)} L · ${quoteKmPerLiter} km/L`
+                      : `${quoteKmPerLiter} km/L`}
+                  </p>
+                </div>
+                <div className="text-center border-x border-slate-600/50">
+                  <p className="text-xs text-slate-400 mb-1">Seguro (1 día)</p>
+                  <p className={`text-lg font-bold ${quotePolicy ? 'text-violet-400' : 'text-slate-600'}`}>
+                    {quotePolicy ? formatCurrency(quoteInsuranceDay) : '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {quotePolicy ? quotePolicy.insurer : 'Sin póliza asignada'}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Total estimado</p>
+                  <p className={`text-lg font-bold ${hasDistance ? 'text-amber-400' : 'text-slate-600'}`}>
+                    {hasDistance ? formatCurrency(quoteEstimatedCost) : '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">combustible + seguro</p>
+                </div>
+              </div>
             </div>
           )}
 
