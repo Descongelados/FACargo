@@ -17,17 +17,7 @@ import {
 import { TRIP_STATUS_LABELS, VEHICLE_STATUS_LABELS, QUOTE_STATUS_LABELS } from '../constants';
 import { formatCurrency } from '../utils/formatters';
 
-// ─── Datos mensuales derivados de los mocks históricos ────────────────────────
-// Los valores reales se calculan de los stores; estos son acumulados de meses
-// anteriores que no se almacenan en el estado (datos de referencia visual).
-const MONTHLY_DATA = [
-  { mes: 'Oct', ingresos: 172000, gastos: 93200 },
-  { mes: 'Nov', ingresos: 149000, gastos: 81400 },
-  { mes: 'Dic', ingresos: 268000, gastos: 148200 },
-  { mes: 'Ene', ingresos: 166000, gastos: 92600 },
-  { mes: 'Feb', ingresos: 204000, gastos: 120800 },
-  { mes: 'Mar', ingresos: 113500, gastos: 63400 },
-];
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 const QUOTE_FUNNEL_COLORS = ['#64748b', '#3b82f6', '#10b981', '#f43f5e'];
 
@@ -41,10 +31,20 @@ export default function DashboardPage() {
 
   // ─── KPIs ────────────────────────────────────────────────────────────────
   const deliveredTrips = trips.filter(t => t.status === 'delivered');
-  const totalRevenue = deliveredTrips.reduce((s, t) => s + t.rate, 0)
-    + MONTHLY_DATA.slice(0, 5).reduce((s, d) => s + d.ingresos, 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
-    + MONTHLY_DATA.slice(0, 5).reduce((s, d) => s + d.gastos, 0);
+  const totalRevenue = deliveredTrips.reduce((s, t) => s + t.rate, 0);
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+
+  // Últimos 6 meses calculados con los viajes entregados y los gastos reales
+  const now = new Date();
+  const monthlyData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return {
+      mes: MONTH_NAMES[d.getMonth()],
+      ingresos: deliveredTrips.filter(t => t.departureDate.startsWith(key)).reduce((s, t) => s + t.rate, 0),
+      gastos: expenses.filter(e => e.date.startsWith(key)).reduce((s, e) => s + e.amount, 0),
+    };
+  });
   const activeTrips = trips.filter(t => ['in_transit', 'loading', 'assigned'].includes(t.status)).length;
   const availableVehicles = vehicles.filter(v => v.status === 'available').length;
   const availableDrivers = drivers.filter(d => d.status === 'available').length;
@@ -84,14 +84,12 @@ export default function DashboardPage() {
           value={formatCurrency(totalRevenue)}
           icon={DollarSign}
           iconColor="text-emerald-400"
-          trend={{ value: 13.4, label: 'vs mes anterior' }}
         />
         <KpiCard
           title="Gastos Totales"
           value={formatCurrency(totalExpenses)}
           icon={TrendingUp}
           iconColor="text-rose-400"
-          trend={{ value: -4.2, label: 'vs mes anterior' }}
         />
         <KpiCard
           title="Viajes Activos"
@@ -153,7 +151,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-slate-800 border border-slate-700/50 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-slate-300 mb-4">Ingresos vs Gastos — Últimos 6 meses</h2>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={MONTHLY_DATA}>
+            <AreaChart data={monthlyData}>
               <defs>
                 <linearGradient id="ing" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
