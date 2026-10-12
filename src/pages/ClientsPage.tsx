@@ -77,7 +77,7 @@ export default function ClientsPage() {
                       <p className="font-medium text-white">{c.name}</p>
                       <p className="text-xs text-slate-400">{c.email}</p>
                     </td>
-                    <td className="px-4 py-3 text-slate-300 font-mono text-xs">{c.taxId}</td>
+                    <td className="px-4 py-3 text-slate-300 font-mono text-xs">{c.taxId || <span className="text-slate-500">—</span>}</td>
                     <td className="px-4 py-3">
                       <p className="text-slate-300">{c.contactName}</p>
                       <p className="text-xs text-slate-500">{c.phone}</p>
@@ -111,7 +111,7 @@ export default function ClientsPage() {
           <FormField label="Nombre de la Empresa" required className="col-span-2">
             <Input value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="Distribuidora del Norte S.A." />
           </FormField>
-          <FormField label="RFC / Tax ID" required>
+          <FormField label="RFC / Tax ID">
             <Input value={form.taxId} onChange={(e) => f('taxId', e.target.value)} placeholder="ABC123456XY0" />
           </FormField>
           <FormField label="Estatus">
