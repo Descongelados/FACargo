@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { Truck, Pencil, Trash2, Gauge, Calculator, TrendingUp, Fuel, AlertCircle, Wrench, ReceiptText } from 'lucide-react';
+import { Truck, Pencil, Trash2, Gauge, Calculator, Fuel } from 'lucide-react';
 import { useVehiclesStore } from '../store/useVehiclesStore';
-import { useTripsStore } from '../store/useTripsStore';
-import { useExpensesStore } from '../store/useExpensesStore';
-import { useMaintenanceStore } from '../store/useMaintenanceStore';
 import { Vehicle, VehicleStatus, TrailerType } from '../types';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -32,26 +29,15 @@ const EMPTY_VEHICLE: Omit<Vehicle, 'id'> = {
   status: 'available', lastMaintenanceDate: '',
 };
 
-// ── Tipos internos del calculador ────────────────────────────────────────────
-
-interface CostBreakdown {
-  fuel: number;
-  toll: number;
-  viatics: number;
-  maintenance: number;
-  other: number;
-  totalExpenses: number;
-  maintenanceCost: number;
-  totalKm: number;
-  costPerKm: number;
-  trips: number;
-}
+// Valores por defecto del calculador según tipo de combustible
+const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number }> = {
+  'Diesel':   { pricePerLiter: 25.00, kmPerLiter: 3.5 },
+  'Gasolina': { pricePerLiter: 22.00, kmPerLiter: 4.0 },
+  'Gas LP':   { pricePerLiter: 12.00, kmPerLiter: 3.0 },
+};
 
 export default function VehiclesPage() {
   const { vehicles, addVehicle, updateVehicle, deleteVehicle } = useVehiclesStore();
-  const { trips } = useTripsStore();
-  const { expenses } = useExpensesStore();
-  const { maintenances } = useMaintenanceStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -63,8 +49,13 @@ export default function VehiclesPage() {
 
   // modal calculador
   const [calcVehicle, setCalcVehicle] = useState<Vehicle | null>(null);
-  const [margin, setMargin] = useState(20); // % margen sobre costo
-  const [breakdown, setBreakdown] = useState<CostBreakdown | null>(null);
+  const [pricePerLiter, setPricePerLiter] = useState(25.00);
+  const [kmPerLiter, setKmPerLiter] = useState(3.5);
+  const [margin, setMargin] = useState(20);
+
+  // Cálculo derivado
+  const fuelCostPerKm = kmPerLiter > 0 ? pricePerLiter / kmPerLiter : 0;
+  const suggestedRatePerKm = fuelCostPerKm * (1 + margin / 100);
 
   const filtered = vehicles.filter((v) => {
     const matchSearch = v.unitNumber.toLowerCase().includes(search.toLowerCase()) ||
@@ -90,48 +81,14 @@ export default function VehiclesPage() {
   const f = (key: keyof Omit<Vehicle, 'id'>, val: string | number) =>
     setForm((p) => ({ ...p, [key]: val }));
 
-  // ── Calculador de costo por km ────────────────────────────────────────────
+  // ── Calculador ────────────────────────────────────────────────────────────
 
   const openCalc = (v: Vehicle) => {
-    setCalcVehicle(v);
+    const defaults = FUEL_DEFAULTS[v.fuelType] ?? FUEL_DEFAULTS['Diesel'];
+    setPricePerLiter(defaults.pricePerLiter);
+    setKmPerLiter(defaults.kmPerLiter);
     setMargin(20);
-    computeBreakdown(v, 20);
-  };
-
-  const computeBreakdown = (v: Vehicle, marginPct: number) => {
-    // Viajes de esta unidad
-    const vehicleTrips = trips.filter(t => t.vehicleId === v.id);
-    const totalKm = vehicleTrips.reduce((s, t) => s + (t.distanceKm ?? 0), 0);
-
-    // Gastos ligados a esos viajes
-    const tripIds = new Set(vehicleTrips.map(t => t.id));
-    const vehicleExpenses = expenses.filter(e => e.tripId && tripIds.has(e.tripId));
-
-    const fuel    = vehicleExpenses.filter(e => e.category === 'fuel').reduce((s, e) => s + e.amount, 0);
-    const toll    = vehicleExpenses.filter(e => e.category === 'toll').reduce((s, e) => s + e.amount, 0);
-    const viatics = vehicleExpenses.filter(e => e.category === 'viatics').reduce((s, e) => s + e.amount, 0);
-    const maintExp= vehicleExpenses.filter(e => e.category === 'maintenance').reduce((s, e) => s + e.amount, 0);
-    const other   = vehicleExpenses.filter(e => !['fuel','toll','viatics','maintenance'].includes(e.category)).reduce((s, e) => s + e.amount, 0);
-    const totalExpenses = fuel + toll + viatics + maintExp + other;
-
-    // Costos de mantenimiento del taller registrados para esta unidad
-    const maintenanceCost = maintenances
-      .filter(m => m.vehicleId === v.id)
-      .reduce((s, m) => s + m.cost, 0);
-
-    const grandTotal = totalExpenses + maintenanceCost;
-    const costPerKm = totalKm > 0 ? grandTotal / totalKm : 0;
-
-    setBreakdown({
-      fuel, toll, viatics, maintenance: maintExp, other,
-      totalExpenses, maintenanceCost, totalKm,
-      costPerKm, trips: vehicleTrips.length,
-    });
-  };
-
-  const handleMarginChange = (val: number) => {
-    setMargin(val);
-    if (calcVehicle) computeBreakdown(calcVehicle, val);
+    setCalcVehicle(v);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -297,9 +254,9 @@ export default function VehiclesPage() {
         isOpen={!!calcVehicle}
         onClose={() => setCalcVehicle(null)}
         title={`Costo por km — ${calcVehicle?.unitNumber}`}
-        size="lg"
+        size="md"
       >
-        {calcVehicle && breakdown && (
+        {calcVehicle && (
           <div className="space-y-5">
 
             {/* Resumen unidad */}
@@ -311,132 +268,120 @@ export default function VehiclesPage() {
                 <p className="text-sm font-semibold text-white">
                   {calcVehicle.brand} {calcVehicle.model} {calcVehicle.year}
                 </p>
-                <p className="text-xs text-slate-400">{calcVehicle.plate} · {calcVehicle.trailerType}</p>
+                <p className="text-xs text-slate-400">{calcVehicle.plate} · {calcVehicle.fuelType}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs text-slate-400">Odómetro total</p>
+                <p className="text-xs text-slate-400">Odómetro</p>
                 <p className="text-sm font-bold text-white">{formatNumber(calcVehicle.odometer)} km</p>
               </div>
             </div>
 
-            {/* Sin datos */}
-            {breakdown.totalKm === 0 ? (
-              <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-amber-300">Sin viajes registrados</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    No hay viajes con km ni gastos vinculados a esta unidad. Registra viajes y gastos para calcular el costo real.
-                  </p>
+            {/* ── Inputs ─────────────────────────────────────────────────── */}
+            <div className="space-y-4">
+              {/* Costo de combustible */}
+              <div className="p-4 bg-slate-700/30 border border-slate-600/50 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <Fuel className="w-4 h-4 text-orange-400" />
+                  <p className="text-sm font-medium text-white">Costo de combustible</p>
                 </div>
-              </div>
-            ) : (
-              <>
-                {/* Desglose de gastos */}
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                    Desglose de gastos — {breakdown.trips} viaje{breakdown.trips !== 1 ? 's' : ''} · {formatNumber(breakdown.totalKm)} km recorridos
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { label: 'Combustible', value: breakdown.fuel, icon: Fuel, color: 'text-orange-400' },
-                      { label: 'Casetas / Peajes', value: breakdown.toll, icon: ReceiptText, color: 'text-blue-400' },
-                      { label: 'Viáticos', value: breakdown.viatics, icon: TrendingUp, color: 'text-purple-400' },
-                      { label: 'Mant. en ruta', value: breakdown.maintenance, icon: Wrench, color: 'text-amber-400' },
-                      { label: 'Otros gastos', value: breakdown.other, icon: ReceiptText, color: 'text-slate-400' },
-                      { label: 'Mantenimientos (taller)', value: breakdown.maintenanceCost, icon: Wrench, color: 'text-rose-400' },
-                    ].map(({ label, value, icon: Icon, color }) => (
-                      <div key={label} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-slate-700/30">
-                        <div className="flex items-center gap-2">
-                          <Icon className={`w-3.5 h-3.5 ${color}`} />
-                          <span className="text-sm text-slate-300">{label}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-medium text-white">{formatCurrency(value)}</span>
-                          {breakdown.totalKm > 0 && (
-                            <span className="text-xs text-slate-500 ml-2">
-                              ${value > 0 ? (value / breakdown.totalKm).toFixed(2) : '0.00'}/km
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Total */}
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-700 border border-slate-600 mt-1">
-                      <span className="text-sm font-semibold text-white">Total de costos</span>
-                      <span className="text-sm font-bold text-white">
-                        {formatCurrency(breakdown.totalExpenses + breakdown.maintenanceCost)}
-                      </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">Precio por litro (MXN)</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        value={pricePerLiter}
+                        min={0}
+                        step={0.10}
+                        onChange={e => setPricePerLiter(Math.max(0, +e.target.value))}
+                        className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-slate-400 text-xs">/ L</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">Rendimiento (km / L)</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={kmPerLiter}
+                        min={0.1}
+                        step={0.1}
+                        onChange={e => setKmPerLiter(Math.max(0.1, +e.target.value))}
+                        className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-slate-400 text-xs">km/L</span>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Resultado costo/km */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                    <p className="text-xs text-amber-300/70 mb-1">Costo real por km</p>
-                    <p className="text-3xl font-bold text-amber-400">
-                      ${breakdown.costPerKm.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">MXN / km</p>
-                  </div>
-
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
-                    <p className="text-xs text-emerald-300/70 mb-1">
-                      Tarifa mínima sugerida (+{margin}%)
-                    </p>
-                    <p className="text-3xl font-bold text-emerald-400">
-                      ${(breakdown.costPerKm * (1 + margin / 100)).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">MXN / km</p>
-                  </div>
-                </div>
-
-                {/* Control de margen */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium text-slate-300">
-                      Margen de ganancia: <span className="text-white font-bold">{margin}%</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={margin}
-                      min={0}
-                      max={200}
-                      onChange={(e) => handleMarginChange(Math.max(0, +e.target.value))}
-                      className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
+              {/* Margen */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-300">
+                    Margen de ganancia: <span className="text-white font-bold">{margin}%</span>
+                  </label>
                   <input
-                    type="range"
+                    type="number"
+                    value={margin}
                     min={0}
-                    max={100}
-                    value={Math.min(margin, 100)}
-                    onChange={(e) => handleMarginChange(+e.target.value)}
-                    className="w-full h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                    max={500}
+                    onChange={e => setMargin(Math.max(0, +e.target.value))}
+                    className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
                   />
-                  <div className="flex justify-between text-xs text-slate-600 mt-1">
-                    <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-                  </div>
                 </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.min(margin, 100)}
+                  onChange={e => setMargin(+e.target.value)}
+                  className="w-full h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                />
+                <div className="flex justify-between text-xs text-slate-600">
+                  <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+                </div>
+              </div>
+            </div>
 
-                {/* Ejemplo por distancia */}
-                <div className="p-3 bg-slate-700/30 rounded-lg">
-                  <p className="text-xs text-slate-400 mb-2 font-medium">Ejemplo de tarifa por distancia (con margen {margin}%)</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[200, 500, 920, 1500].map((km) => (
-                      <div key={km} className="text-center p-2 bg-slate-700/50 rounded-lg">
-                        <p className="text-xs text-slate-400">{formatNumber(km)} km</p>
-                        <p className="text-sm font-bold text-white">
-                          {formatCurrency(breakdown.costPerKm * (1 + margin / 100) * km)}
-                        </p>
-                      </div>
-                    ))}
+            {/* ── Resultado ──────────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
+                <p className="text-xs text-amber-300/70 mb-1">Costo de combustible / km</p>
+                <p className="text-3xl font-bold text-amber-400">
+                  ${fuelCostPerKm.toFixed(2)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  ${pricePerLiter.toFixed(2)} ÷ {kmPerLiter} km/L
+                </p>
+              </div>
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
+                <p className="text-xs text-emerald-300/70 mb-1">Tarifa mínima (+{margin}%)</p>
+                <p className="text-3xl font-bold text-emerald-400">
+                  ${suggestedRatePerKm.toFixed(2)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">MXN / km</p>
+              </div>
+            </div>
+
+            {/* Tabla de ejemplo por distancia */}
+            <div className="p-3 bg-slate-700/30 rounded-lg">
+              <p className="text-xs text-slate-400 mb-2 font-medium">
+                Tarifa estimada por distancia (margen {margin}%)
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {[200, 500, 920, 1500].map((km) => (
+                  <div key={km} className="text-center p-2 bg-slate-700/50 rounded-lg">
+                    <p className="text-xs text-slate-400">{formatNumber(km)} km</p>
+                    <p className="text-sm font-bold text-white">
+                      {formatCurrency(suggestedRatePerKm * km)}
+                    </p>
                   </div>
-                </div>
-              </>
-            )}
+                ))}
+              </div>
+            </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-700">
               <button
