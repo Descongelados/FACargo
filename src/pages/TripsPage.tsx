@@ -245,6 +245,11 @@ export default function TripsPage() {
   const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>>(EMPTY_QUOTE);
   const [guestClient, setGuestClient] = useState(false);
   const [kmError, setKmError] = useState('');
+  // true tras intentar guardar: marca en rojo los campos obligatorios vacíos
+  const [quoteTried, setQuoteTried] = useState(false);
+  const quoteMissing = (v?: string) => quoteTried && !v?.trim();
+  const quoteFieldErr = (v?: string) => (quoteMissing(v) ? 'Campo obligatorio' : undefined);
+  const quoteFieldCls = (v?: string) => (quoteMissing(v) ? 'border-rose-500 focus:border-rose-500' : '');
   const [quoteMargin, setQuoteMargin] = useState(DEFAULT_MARGIN);
   // true = la tarifa propuesta se recalcula sola (total estimado + utilidad); false = el usuario la capturó a mano
   const [rateAuto, setRateAuto] = useState(true);
@@ -351,6 +356,7 @@ export default function TripsPage() {
     setEditingQuoteId(null);
     setGuestClient(false);
     setKmError('');
+    setQuoteTried(false);
     setQuoteMargin(DEFAULT_MARGIN);
     setRateAuto(true);
     setQuotePriceInput(null);
@@ -364,12 +370,14 @@ export default function TripsPage() {
     setGuestClient(!q.clientId);
     setKmError('');
     setQuoteMargin(DEFAULT_MARGIN);
+    setQuoteTried(false);
     setRateAuto(false); // conserva la tarifa guardada hasta que el usuario mueva un costo o la barra
     setQuotePriceInput(null);
     setQuoteDriverSalary(0);
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
+    setQuoteTried(true);
     if (!requireFields({
       [guestClient ? 'Nombre del Prospecto' : 'Cliente']: guestClient ? quoteForm.clientName : quoteForm.clientId,
       'Origen': quoteForm.origin,
@@ -737,16 +745,16 @@ export default function TripsPage() {
           </div>
 
           {!guestClient ? (
-            <FormField label="Cliente" required className="col-span-2">
-              <Select value={quoteForm.clientId} onChange={(e) => handleQuoteClientChange(e.target.value)}>
+            <FormField label="Cliente" required className="col-span-2" error={quoteFieldErr(quoteForm.clientId)}>
+              <Select value={quoteForm.clientId} onChange={(e) => handleQuoteClientChange(e.target.value)} className={quoteFieldCls(quoteForm.clientId)}>
                 <option value="">Seleccionar cliente...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </FormField>
           ) : (
             <>
-              <FormField label="Nombre del Prospecto" required className="col-span-2">
-                <Input value={quoteForm.clientName} onChange={(e) => fq('clientName', e.target.value)} placeholder="Empresa o persona interesada" />
+              <FormField label="Nombre del Prospecto" required className="col-span-2" error={quoteFieldErr(quoteForm.clientName)}>
+                <Input value={quoteForm.clientName} onChange={(e) => fq('clientName', e.target.value)} placeholder="Empresa o persona interesada" className={quoteFieldCls(quoteForm.clientName)} />
               </FormField>
               <FormField label="Teléfono de Contacto">
                 <Input value={quoteForm.guestClientPhone ?? ''} onChange={(e) => fq('guestClientPhone', e.target.value)} placeholder="+52 55 1234 5678" />
@@ -905,11 +913,11 @@ export default function TripsPage() {
             </div>
           )}
 
-          <FormField label="Origen" required>
-            <Input value={quoteForm.origin} onChange={(e) => fq('origin', e.target.value)} placeholder="Monterrey, NL" />
+          <FormField label="Origen" required error={quoteFieldErr(quoteForm.origin)}>
+            <Input value={quoteForm.origin} onChange={(e) => fq('origin', e.target.value)} placeholder="Monterrey, NL" className={quoteFieldCls(quoteForm.origin)} />
           </FormField>
-          <FormField label="Destino" required>
-            <Input value={quoteForm.destination} onChange={(e) => fq('destination', e.target.value)} placeholder="Ciudad de México, CDMX" />
+          <FormField label="Destino" required error={quoteFieldErr(quoteForm.destination)}>
+            <Input value={quoteForm.destination} onChange={(e) => fq('destination', e.target.value)} placeholder="Ciudad de México, CDMX" className={quoteFieldCls(quoteForm.destination)} />
           </FormField>
 
           <FormField label="Tipo de Remolque" required>
@@ -923,8 +931,8 @@ export default function TripsPage() {
             </Select>
           </FormField>
 
-          <FormField label="Descripción de Carga" required className="col-span-2">
-            <Input value={quoteForm.cargoDescription} onChange={(e) => fq('cargoDescription', e.target.value)} placeholder="Electrónicos, Alimentos, Acero..." />
+          <FormField label="Descripción de Carga" required className="col-span-2" error={quoteFieldErr(quoteForm.cargoDescription)}>
+            <Input value={quoteForm.cargoDescription} onChange={(e) => fq('cargoDescription', e.target.value)} placeholder="Electrónicos, Alimentos, Acero..." className={quoteFieldCls(quoteForm.cargoDescription)} />
           </FormField>
           <FormField label="Peso de Carga (kg)">
             <Input type="number" value={quoteForm.cargoWeightKg} onChange={(e) => fq('cargoWeightKg', +e.target.value)} min={0} />
@@ -944,8 +952,8 @@ export default function TripsPage() {
           <FormField label="Tarifa Propuesta (MXN)" required>
             <Input type="number" value={quoteForm.proposedRate} onChange={(e) => { setRateAuto(false); fq('proposedRate', +e.target.value); }} min={0} />
           </FormField>
-          <FormField label="Válida Hasta" required>
-            <Input type="date" value={quoteForm.validUntil} onChange={(e) => fq('validUntil', e.target.value)} />
+          <FormField label="Válida Hasta" required error={quoteFieldErr(quoteForm.validUntil)}>
+            <Input type="date" value={quoteForm.validUntil} onChange={(e) => fq('validUntil', e.target.value)} className={quoteFieldCls(quoteForm.validUntil)} />
           </FormField>
           <FormField label="Notas" className="col-span-2">
             <Input value={quoteForm.notes ?? ''} onChange={(e) => fq('notes', e.target.value)} placeholder="Condiciones especiales, restricciones..." />
