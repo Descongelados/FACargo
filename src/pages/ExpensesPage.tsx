@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { EXPENSE_CATEGORIES } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { requireFields } from '../utils/validate';
 
 const CATEGORY_ICONS: Record<ExpenseCategory, React.FC<{ className?: string }>> = {
   fuel: Fuel,
@@ -54,7 +55,11 @@ export default function ExpensesPage() {
   const totalFiltered = filtered.reduce((s, e) => s + e.amount, 0);
 
   const openAdd = () => { setForm(EMPTY_EXPENSE); setIsModalOpen(true); };
-  const handleSave = () => { addExpense(form); setIsModalOpen(false); };
+  const handleSave = () => {
+    if (!requireFields({ 'Descripción': form.description, 'Fecha': form.date })) return;
+    addExpense(form);
+    setIsModalOpen(false);
+  };
 
   const handleTripChange = (tripId: string) => {
     const trip = trips.find(t => t.id === tripId);

@@ -20,6 +20,7 @@ import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS, EXPENSE_CATEGORIES } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { requireFields } from '../utils/validate';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -289,6 +290,15 @@ export default function TripsPage() {
     setTripForm(rest); setEditingTripId(id); setTripModalOpen(true);
   };
   const handleSaveTrip = () => {
+    if (!requireFields({
+      'Cliente': tripForm.clientId,
+      'Operador': tripForm.driverId,
+      'Unidad': tripForm.vehicleId,
+      'Origen': tripForm.origin,
+      'Destino': tripForm.destination,
+      'Descripción de Carga': tripForm.cargoDescription,
+      'Fecha de Salida': tripForm.departureDate,
+    })) return;
     const { clientName: _cn, driverName: _dn, vehicleUnit: _vu, ...tripData } = tripForm;
     if (editingTripId) updateTrip(editingTripId, tripForm); else addTrip(tripData);
     setTripModalOpen(false);
@@ -345,6 +355,13 @@ export default function TripsPage() {
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
+    if (!requireFields({
+      [guestClient ? 'Nombre del Prospecto' : 'Cliente']: guestClient ? quoteForm.clientName : quoteForm.clientId,
+      'Origen': quoteForm.origin,
+      'Destino': quoteForm.destination,
+      'Descripción de Carga': quoteForm.cargoDescription,
+      'Válida Hasta': quoteForm.validUntil,
+    })) return;
     if (quoteForm.distanceKm < MIN_KM) { setKmError(`La distancia mínima es ${MIN_KM} km.`); return; }
     if (editingQuoteId) updateQuote(editingQuoteId, quoteForm); else addQuote(quoteForm);
     setQuoteModalOpen(false);

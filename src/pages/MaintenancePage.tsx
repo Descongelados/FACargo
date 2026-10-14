@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select, Textarea } from '../components/ui/FormElements';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { requireFields } from '../utils/validate';
 
 const MAINT_STATUS_LABELS: Record<MaintenanceStatus, { label: string; color: string; icon: React.FC<{className?:string}> }> = {
   scheduled: { label: 'Programado', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
@@ -50,6 +51,7 @@ export default function MaintenancePage() {
     setForm(rest); setEditingId(id); setIsModalOpen(true);
   };
   const handleSave = () => {
+    if (!requireFields({ 'Unidad': form.vehicleId, 'Descripción': form.description, 'Fecha': form.date })) return;
     if (editingId) updateMaintenance(editingId, form);
     else addMaintenance(form);
     setIsModalOpen(false);
@@ -151,7 +153,7 @@ export default function MaintenancePage() {
           <FormField label="Costo (MXN)">
             <Input type="number" value={form.cost} onChange={(e) => f('cost', +e.target.value)} min={0} />
           </FormField>
-          <FormField label="Fecha">
+          <FormField label="Fecha" required>
             <Input type="date" value={form.date} onChange={(e) => f('date', e.target.value)} />
           </FormField>
           <FormField label="Estatus">

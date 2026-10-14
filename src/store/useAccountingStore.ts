@@ -64,7 +64,7 @@ export const useAccountingStore = create<AccountingState>((set) => ({
       .update({
         status: 'closed',
         closed_at: new Date().toISOString(),
-        closed_by: closedBy,
+        closed_by: closedBy || null,
         notes: notes ?? null,
       })
       .eq('id', periodId)

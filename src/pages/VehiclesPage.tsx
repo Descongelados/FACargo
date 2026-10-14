@@ -14,6 +14,7 @@ import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { VEHICLE_STATUS_LABELS } from '../constants';
 import { formatNumber, formatCurrency } from '../utils/formatters';
+import { requireFields } from '../utils/validate';
 
 const TRAILER_TYPES: TrailerType[] = [
   'Dry Van (Caja Seca)', 'Reefer (Refrigerado)', 'Flatbed (Plataforma)', 'Tanker (Pipa)', 'Lowboy',
@@ -122,6 +123,7 @@ export default function VehiclesPage() {
     setIsVehicleModalOpen(true);
   };
   const handleSaveVehicle = () => {
+    if (!requireFields({ 'Placa': vehicleForm.plate, 'Marca': vehicleForm.brand })) return;
     if (editingVehicleId) updateVehicle(editingVehicleId, vehicleForm);
     else addVehicle(vehicleForm);
     setIsVehicleModalOpen(false);
@@ -163,6 +165,13 @@ export default function VehiclesPage() {
     setIsPolicyModalOpen(true);
   };
   const handleSavePolicy = () => {
+    if (!requireFields({
+      'Unidad': policyForm.vehicleId,
+      'Número de Póliza': policyForm.policyNumber,
+      'Aseguradora': policyForm.insurer,
+      'Fecha de Inicio': policyForm.startDate,
+      'Fecha de Vencimiento': policyForm.endDate,
+    })) return;
     if (editingPolicyId) updatePolicy(editingPolicyId, policyForm);
     else addPolicy(policyForm);
     setIsPolicyModalOpen(false);

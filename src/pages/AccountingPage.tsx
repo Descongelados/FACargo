@@ -15,6 +15,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import { formatCurrency } from '../utils/formatters';
+import { requireFields } from '../utils/validate';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, BarChart, Bar, Legend,
@@ -172,6 +173,11 @@ export default function AccountingPage() {
     setEntryModalOpen(true);
   };
   const handleSaveEntry = () => {
+    if (!requireFields({
+      'Periodo (selecciona o crea uno)': entryForm.periodId,
+      'Descripción': entryForm.description,
+      'Fecha': entryForm.date,
+    })) return;
     if (editingEntryId) updateEntry(editingEntryId, entryForm); else addEntry(entryForm);
     setEntryModalOpen(false);
   };
@@ -180,7 +186,7 @@ export default function AccountingPage() {
 
   const handleClosePeriod = () => {
     if (selectedPeriod) {
-      closePeriod(selectedPeriod.id, currentUser?.name ?? 'sistema', closeNotes);
+      closePeriod(selectedPeriod.id, currentUser?.id ?? '', closeNotes);
       setCloseModalOpen(false);
       setCloseNotes('');
     }

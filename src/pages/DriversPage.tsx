@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { DRIVER_STATUS_LABELS } from '../constants';
+import { requireFields } from '../utils/validate';
 
 const EMPTY_DRIVER: Omit<Driver, 'id'> = {
   fullName: '', licenseNumber: '', licenseExpiry: '', phone: '',
@@ -36,6 +37,11 @@ export default function DriversPage() {
     setForm(rest); setEditingId(id); setIsModalOpen(true);
   };
   const handleSave = () => {
+    if (!requireFields({
+      'Nombre Completo': form.fullName,
+      'Número de Licencia': form.licenseNumber,
+      'Vencimiento de Licencia': form.licenseExpiry,
+    })) return;
     if (editingId) updateDriver(editingId, form);
     else addDriver(form);
     setIsModalOpen(false);

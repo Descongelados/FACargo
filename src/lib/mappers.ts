@@ -193,7 +193,7 @@ export function quoteToDB(q: Omit<Quote, 'id' | 'quoteNumber' | 'clientName' | '
     client_id:           q.clientId || null,
     guest_client_phone:  q.guestClientPhone ?? null,
     guest_client_email:  q.guestClientEmail ?? null,
-    vehicle_id:          q.vehicleId ?? null,
+    vehicle_id:          q.vehicleId || null,
     origin:              q.origin,
     destination:         q.destination,
     cargo_description:   q.cargoDescription,
@@ -225,7 +225,7 @@ export function expenseFromDB(row: Record<string, unknown>): Expense {
 
 export function expenseToDB(e: Omit<Expense, 'id' | 'tripNumber'>) {
   return {
-    trip_id:        e.tripId ?? null,
+    trip_id:        e.tripId || null,
     category:       e.category,
     description:    e.description,
     amount:         e.amount,
@@ -323,7 +323,7 @@ export function periodToDB(p: Omit<AccountingPeriod, 'id'>) {
     status:           p.status,
     opening_balance:  p.openingBalance,
     closed_at:        p.closedAt ?? null,
-    closed_by:        p.closedBy ?? null,
+    closed_by:        p.closedBy || null,
     notes:            p.notes ?? null,
   };
 }
@@ -372,7 +372,7 @@ export function toDBPatch(patch: object): Record<string, unknown> {
   for (const [key, value] of Object.entries(patch)) {
     if (NON_COLUMN_KEYS.has(key) || value === undefined) continue;
     const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    // Un id o fecha vacíos deben guardarse como NULL (uuid/date no aceptan '')
+    // Un id o fecha vacï¿½os deben guardarse como NULL (uuid/date no aceptan '')
     out[col] = value === '' && /(_id|_date)$/.test(col) ? null : value;
   }
   return out;
