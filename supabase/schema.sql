@@ -60,13 +60,13 @@ create table public.profiles (
 
 -- Trigger: crear perfil automáticamente al registrar usuario en Auth
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, full_name, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', new.email),
-    coalesce((new.raw_user_meta_data->>'role')::user_role, 'dispatcher')
+    coalesce((new.raw_user_meta_data->>'role')::public.user_role, 'dispatcher')
   );
   return new;
 end;
