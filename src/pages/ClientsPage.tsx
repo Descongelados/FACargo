@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Users, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useClientsStore } from '../store/useClientsStore';
+import { useNotifyStore } from '../store/useNotifyStore';
 import { Client } from '../types';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -35,6 +36,10 @@ export default function ClientsPage() {
     setForm(rest); setEditingId(id); setIsModalOpen(true);
   };
   const handleSave = () => {
+    if (!form.name.trim() || !form.contactName.trim()) {
+      useNotifyStore.getState().notifyError('Completa los campos obligatorios: Nombre de la Empresa y Nombre de Contacto.');
+      return;
+    }
     if (editingId) updateClient(editingId, form);
     else addClient(form);
     setIsModalOpen(false);
