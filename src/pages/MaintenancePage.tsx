@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle, CalendarClock } from 'lucide-react';
+import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle, CalendarClock, ArrowRight } from 'lucide-react';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
 import { Maintenance, MaintenanceType, MaintenanceStatus } from '../types';
@@ -23,6 +23,16 @@ const MAINT_TYPE_LABELS: Record<MaintenanceType, string> = {
   corrective: 'Correctivo',
   tire: 'Llantas',
   inspection: 'Inspección',
+};
+
+const NEXT_STATUS: Partial<Record<MaintenanceStatus, MaintenanceStatus>> = {
+  scheduled:   'in_progress',
+  in_progress: 'completed',
+};
+
+const NEXT_STATUS_LABEL: Partial<Record<MaintenanceStatus, string>> = {
+  scheduled:   'Iniciar',
+  in_progress: 'Completar',
 };
 
 const EMPTY_MAINT: Omit<Maintenance, 'id'> = {
@@ -214,7 +224,19 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3 text-slate-400 text-xs">{formatDate(m.date)}</td>
                       <td className="px-4 py-3 font-semibold text-white">{formatCurrency(m.cost)}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge colorClass={s.color} label={s.label} />
+                        <div className="flex items-center gap-2">
+                          <StatusBadge colorClass={s.color} label={s.label} />
+                          {NEXT_STATUS[m.status] && (
+                            <button
+                              onClick={() => updateMaintenance(m.id, { status: NEXT_STATUS[m.status]! })}
+                              title={`Avanzar a: ${MAINT_STATUS_LABELS[NEXT_STATUS[m.status]!].label}`}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white border border-slate-600 transition-colors"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                              {NEXT_STATUS_LABEL[m.status]}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
