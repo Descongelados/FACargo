@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ComponentType } from 'react';
 import {
   BookOpen, Plus, Lock, Unlock, Pencil, Trash2,
@@ -89,12 +89,12 @@ function calcPeriodTotals(entries: AccountingEntry[], periodId: string) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function AccountingPage() {
-  const { periods, entries, addEntry, updateEntry, deleteEntry, closePeriod, reopenPeriod, addPeriod } =
+  const { periods, entries, addEntry, updateEntry, deleteEntry, closePeriod, reopenPeriod, addPeriod, loadEntries } =
     useAccountingStore();
   const { currentUser } = useAuthStore();
 
   const [activeTab, setActiveTab]               = useState<AccountingTab>('summary');
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(periods[periods.length - 1]?.id ?? '');
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(periods[0]?.id ?? '');
   const [entryModalOpen, setEntryModalOpen]     = useState(false);
   const [editingEntryId, setEditingEntryId]     = useState<string | null>(null);
   const [entryForm, setEntryForm]               = useState<Omit<AccountingEntry, 'id'>>(EMPTY_ENTRY);
@@ -103,6 +103,15 @@ export default function AccountingPage() {
   const [newPeriodModalOpen, setNewPeriodModalOpen] = useState(false);
   const [newPeriodMonth, setNewPeriodMonth]     = useState(new Date().getMonth() + 1);
   const [newPeriodYear, setNewPeriodYear]       = useState(new Date().getFullYear());
+
+  // Los periodos llegan ordenados del más reciente al más antiguo
+  useEffect(() => {
+    if (!selectedPeriodId && periods.length > 0) setSelectedPeriodId(periods[0].id);
+  }, [periods, selectedPeriodId]);
+
+  useEffect(() => {
+    if (selectedPeriodId) loadEntries(selectedPeriodId);
+  }, [selectedPeriodId, loadEntries]);
 
   const selectedPeriod = periods.find(p => p.id === selectedPeriodId);
   const periodEntries  = entries.filter(e => e.periodId === selectedPeriodId);
