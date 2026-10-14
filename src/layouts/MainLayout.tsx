@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import ErrorToast from '../components/ui/ErrorToast';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useClientsStore } from '../store/useClientsStore';
@@ -37,6 +38,7 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+      <ErrorToast />
     </div>
   );
 }
