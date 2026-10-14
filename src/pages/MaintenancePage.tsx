@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle, CalendarClock, ArrowRight } from 'lucide-react';
+import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle, CalendarClock, ArrowRight, History } from 'lucide-react';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
 import { Maintenance, MaintenanceType, MaintenanceStatus } from '../types';
@@ -40,15 +40,21 @@ const EMPTY_MAINT: Omit<Maintenance, 'id'> = {
   workshop: '', cost: 0, date: '', status: 'scheduled',
 };
 
+type PageTab = 'active' | 'completed';
+
 export default function MaintenancePage() {
   const { maintenances, addMaintenance, updateMaintenance, deleteMaintenance } = useMaintenanceStore();
   const { vehicles } = useVehiclesStore();
+  const [pageTab, setPageTab] = useState<PageTab>('active');
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<Maintenance, 'id'>>(EMPTY_MAINT);
 
-  const filtered = maintenances.filter(
+  const activeList    = maintenances.filter((m) => m.status !== 'completed');
+  const completedList = maintenances.filter((m) => m.status === 'completed');
+
+  const filtered = (pageTab === 'active' ? activeList : completedList).filter(
     (m) =>
       m.vehicleUnit.toLowerCase().includes(search.toLowerCase()) ||
       m.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,7 +81,8 @@ export default function MaintenancePage() {
   const f = (key: keyof Omit<Maintenance, 'id'>, val: string | number | undefined) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
-  const totalCost = maintenances.reduce((s, m) => s + m.cost, 0);
+  const totalCost      = maintenances.reduce((s, m) => s + m.cost, 0);
+  const completedCost  = completedList.reduce((s, m) => s + m.cost, 0);
 
   // ─── Vista de próximos mantenimientos cada 6 meses ────────────────────────
   const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
@@ -107,8 +114,40 @@ export default function MaintenancePage() {
         action={{ label: 'Nuevo Mantenimiento', onClick: openAdd }}
       />
 
-      {/* ── Alerta crítica (≤ 7 días) ── */}
-      {criticalItems.length > 0 && (
+      {/* ── Pestañas ── */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => { setPageTab('active'); setSearch(''); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            pageTab === 'active'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700/50'
+          }`}
+        >
+          <Wrench className="w-4 h-4" />
+          Activos
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${pageTab === 'active' ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'}`}>
+            {activeList.length}
+          </span>
+        </button>
+        <button
+          onClick={() => { setPageTab('completed'); setSearch(''); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            pageTab === 'completed'
+              ? 'bg-emerald-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700/50'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          Completados
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${pageTab === 'completed' ? 'bg-emerald-500' : 'bg-slate-700 text-slate-400'}`}>
+            {completedList.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ── Alerta crítica (≤ 7 días) — solo en activos ── */}
+      {pageTab === 'active' && criticalItems.length > 0 && (
         <div className="flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl">
           <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
           <div>
@@ -129,7 +168,8 @@ export default function MaintenancePage() {
         </div>
       )}
 
-      {/* ── Panel de próximos mantenimientos (siempre visible) ── */}
+      {/* ── Panel de próximos mantenimientos — solo en activos ── */}
+      {pageTab === 'active' && (
       <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
           <CalendarClock className="w-4 h-4 text-amber-400" />
@@ -185,6 +225,7 @@ export default function MaintenancePage() {
           </div>
         )}
       </div>
+      )}
 
       <div className="flex gap-3">
         <div className="flex-1">
@@ -193,9 +234,24 @@ export default function MaintenancePage() {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Wrench} title="Sin registros" description="Registra el primer mantenimiento." action={{ label: 'Nuevo Mantenimiento', onClick: openAdd }} />
+        <EmptyState
+          icon={pageTab === 'active' ? Wrench : History}
+          title={pageTab === 'active' ? 'Sin registros activos' : 'Sin mantenimientos completados'}
+          description={pageTab === 'active' ? 'Registra el primer mantenimiento.' : 'Los mantenimientos completados aparecerán aquí.'}
+          action={pageTab === 'active' ? { label: 'Nuevo Mantenimiento', onClick: openAdd } : undefined}
+        />
       ) : (
         <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
+          {/* Encabezado de costo total en pestaña completados */}
+          {pageTab === 'completed' && (
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 bg-emerald-500/5">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-semibold text-white">{completedList.length} mantenimiento{completedList.length !== 1 ? 's' : ''} completado{completedList.length !== 1 ? 's' : ''}</span>
+              </div>
+              <span className="text-sm font-bold text-emerald-400">{formatCurrency(completedCost)} <span className="text-xs text-slate-500 font-normal">costo total</span></span>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -226,9 +282,12 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <StatusBadge colorClass={s.color} label={s.label} />
-                          {NEXT_STATUS[m.status] && (
+                          {pageTab === 'active' && NEXT_STATUS[m.status] && (
                             <button
-                              onClick={() => updateMaintenance(m.id, { status: NEXT_STATUS[m.status]! })}
+                              onClick={() => {
+                                updateMaintenance(m.id, { status: NEXT_STATUS[m.status]! });
+                                if (NEXT_STATUS[m.status] === 'completed') setPageTab('completed');
+                              }}
                               title={`Avanzar a: ${MAINT_STATUS_LABELS[NEXT_STATUS[m.status]!].label}`}
                               className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white border border-slate-600 transition-colors"
                             >
