@@ -34,11 +34,11 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className={cn(
-          'relative w-full bg-slate-800 border border-slate-700 rounded-xl shadow-2xl',
+          'relative w-full max-h-full flex flex-col bg-slate-800 border border-slate-700 rounded-xl shadow-2xl',
           SIZE_CLASSES[size]
         )}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-700">
+        <div className="flex items-center justify-between p-5 border-b border-slate-700 shrink-0">
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -47,7 +47,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto min-h-0">{children}</div>
       </div>
     </div>
   );
