@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
   FileText, Plus, CheckCircle, Send, XCircle, RotateCcw,
@@ -33,6 +33,8 @@ const TRAILER_TYPES: TrailerType[] = [
 const MIN_KM = 10;
 // Costo fijo por km de desgaste y mantenimiento (MXN)
 const WEAR_COST_PER_KM = 2;
+// Margen de utilidad sugerido por defecto (%)
+const DEFAULT_MARGIN = 25;
 // Días entre los que se divide el sueldo semanal para obtener el costo diario
 const WORK_DAYS_PER_WEEK = 7;
 
@@ -81,13 +83,6 @@ function calcCostPerKm(
     .filter(m => m.vehicleId === vehicleId)
     .reduce((s, m) => s + m.cost, 0);
   return (totalExpenses + maintenanceCost) / totalKm;
-}
-
-// ─── Helper: tarifa sugerida a partir de costo/km ────────────────────────────
-
-function suggestedRate(costPerKm: number, margin: number, distanceKm: number): number {
-  if (costPerKm <= 0 || distanceKm < MIN_KM) return 0;
-  return Math.round(costPerKm * (1 + margin / 100) * distanceKm);
 }
 
 // ─── Sub-componente: Panel de detalle de viaje ────────────────────────────────
@@ -250,7 +245,9 @@ export default function TripsPage() {
   const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>>(EMPTY_QUOTE);
   const [guestClient, setGuestClient] = useState(false);
   const [kmError, setKmError] = useState('');
-  const [quoteMargin, setQuoteMargin] = useState(20);
+  const [quoteMargin, setQuoteMargin] = useState(DEFAULT_MARGIN);
+  // true = la tarifa propuesta se recalcula sola (total estimado + utilidad); false = el usuario la capturó a mano
+  const [rateAuto, setRateAuto] = useState(true);
   // Precio por litro editado a mano (null = usar el valor por defecto del combustible)
   const [quotePriceInput, setQuotePriceInput] = useState<number | null>(null);
   // Sueldo semanal del operador, capturado a mano (MXN)
@@ -261,9 +258,6 @@ export default function TripsPage() {
     if (!quoteForm.vehicleId) return 0;
     return calcCostPerKm(quoteForm.vehicleId, trips, expenses, maintenances);
   }, [quoteForm.vehicleId, trips, expenses, maintenances]);
-
-  const quoteSuggestedRate = suggestedRate(quoteCostPerKm, quoteMargin, quoteForm.distanceKm);
-  const hasVehicleCost = quoteCostPerKm > 0 && quoteForm.distanceKm >= MIN_KM;
 
   // ─── Costo estimado de combustible + 1 día de seguro de la unidad ─────────
   const quoteVehicle = vehicles.find(v => v.id === quoteForm.vehicleId);
@@ -280,6 +274,15 @@ export default function TripsPage() {
   const quoteWearCost = hasDistance ? quoteForm.distanceKm * WEAR_COST_PER_KM : 0;
   const quoteDriverSalaryDay = quoteDriverSalary / WORK_DAYS_PER_WEEK;
   const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay + quoteWearCost + quoteDriverSalaryDay;
+  const quoteProfit = quoteEstimatedCost * (quoteMargin / 100);
+  const quoteAutoRate = Math.round(quoteEstimatedCost + quoteProfit);
+  const canAutoRate = !!quoteVehicle && hasDistance;
+
+  // Tarifa propuesta = total estimado + utilidad (se actualiza al mover cualquier costo o la barra)
+  useEffect(() => {
+    if (!quoteModalOpen || !rateAuto || !canAutoRate) return;
+    setQuoteForm(p => (p.proposedRate === quoteAutoRate ? p : { ...p, proposedRate: quoteAutoRate }));
+  }, [quoteModalOpen, rateAuto, canAutoRate, quoteAutoRate]);
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
 
@@ -348,7 +351,8 @@ export default function TripsPage() {
     setEditingQuoteId(null);
     setGuestClient(false);
     setKmError('');
-    setQuoteMargin(20);
+    setQuoteMargin(DEFAULT_MARGIN);
+    setRateAuto(true);
     setQuotePriceInput(null);
     setQuoteDriverSalary(0);
     setQuoteModalOpen(true);
@@ -359,7 +363,8 @@ export default function TripsPage() {
     setEditingQuoteId(id);
     setGuestClient(!q.clientId);
     setKmError('');
-    setQuoteMargin(20);
+    setQuoteMargin(DEFAULT_MARGIN);
+    setRateAuto(false); // conserva la tarifa guardada hasta que el usuario mueva un costo o la barra
     setQuotePriceInput(null);
     setQuoteDriverSalary(0);
     setQuoteModalOpen(true);
@@ -383,36 +388,23 @@ export default function TripsPage() {
     setQuoteForm(p => ({ ...p, clientId, clientName: c?.name ?? '' }));
   };
 
-  // Al cambiar unidad: recalcular costo/km con el nuevo vehicleId y auto-llenar tarifa
+  // Al cambiar unidad, distancia, costos o utilidad, la tarifa propuesta vuelve a calcularse sola
   const handleQuoteVehicleChange = (vehicleId: string) => {
     const v = vehicles.find(v => v.id === vehicleId);
-    const costPerKm = vehicleId ? calcCostPerKm(vehicleId, trips, expenses, maintenances) : 0;
-    const rate = suggestedRate(costPerKm, quoteMargin, quoteForm.distanceKm);
     setQuotePriceInput(null);
-    setQuoteForm(p => ({
-      ...p,
-      vehicleId,
-      vehicleUnit: v?.unitNumber ?? '',
-      ...(rate > 0 ? { proposedRate: rate } : {}),
-    }));
+    setRateAuto(true);
+    setQuoteForm(p => ({ ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '' }));
   };
 
-  // Al cambiar distancia: recalcular tarifa sugerida con el costo/km actual y auto-llenar
   const handleQuoteKmChange = (val: number) => {
     setKmError(val > 0 && val < MIN_KM ? `La distancia mínima es ${MIN_KM} km.` : '');
-    const rate = suggestedRate(quoteCostPerKm, quoteMargin, val);
-    setQuoteForm(p => ({
-      ...p,
-      distanceKm: val,
-      ...(rate > 0 ? { proposedRate: rate } : {}),
-    }));
+    setRateAuto(true);
+    setQuoteForm(p => ({ ...p, distanceKm: val }));
   };
 
-  // Al cambiar margen: recalcular y auto-llenar tarifa
   const handleMarginChange = (margin: number) => {
     setQuoteMargin(margin);
-    const rate = suggestedRate(quoteCostPerKm, margin, quoteForm.distanceKm);
-    if (rate > 0) fq('proposedRate', rate);
+    setRateAuto(true);
   };
 
   const toggleGuestClient = (isGuest: boolean) => {
@@ -777,7 +769,7 @@ export default function TripsPage() {
             <div className="col-span-2">
               {quoteCostPerKm > 0 ? (
                 <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-3">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-1.5 mb-1">
                         <Calculator className="w-3.5 h-3.5 text-amber-400" />
@@ -796,28 +788,6 @@ export default function TripsPage() {
                       </p>
                       <p className="text-xs text-slate-500">mín. {MIN_KM} km</p>
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-                        <p className="text-xs text-emerald-300/80">Tarifa sugerida (+{quoteMargin}%)</p>
-                      </div>
-                      <p className={`text-lg font-bold ${hasVehicleCost ? 'text-emerald-400' : 'text-slate-600'}`}>
-                        {hasVehicleCost ? formatCurrency(quoteSuggestedRate) : '—'}
-                      </p>
-                      <p className="text-xs text-slate-500">aplicada automáticamente</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 pt-2 border-t border-amber-500/10">
-                    <span className="text-xs text-slate-400 shrink-0">Margen:</span>
-                    <input type="range" min={0} max={100} value={quoteMargin}
-                      onChange={(e) => handleMarginChange(+e.target.value)}
-                      className="flex-1 h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
-                    />
-                    <input type="number" min={0} max={200} value={quoteMargin}
-                      onChange={(e) => handleMarginChange(Math.max(0, +e.target.value))}
-                      className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
-                    />
-                    <span className="text-xs text-slate-400">%</span>
                   </div>
                 </div>
               ) : (
@@ -845,7 +815,7 @@ export default function TripsPage() {
                   <span className="text-xs text-slate-400">Precio por litro</span>
                   <span className="text-slate-400 text-xs">$</span>
                   <input type="number" min={0} step={0.1} value={quotePricePerLiter}
-                    onChange={(e) => setQuotePriceInput(Math.max(0, +e.target.value))}
+                    onChange={(e) => { setQuotePriceInput(Math.max(0, +e.target.value)); setRateAuto(true); }}
                     className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -883,7 +853,7 @@ export default function TripsPage() {
                   <div className="flex items-center justify-center gap-1">
                     <span className="text-slate-400 text-xs">$</span>
                     <input type="number" min={0} step={50} value={quoteDriverSalary || ''}
-                      onChange={(e) => setQuoteDriverSalary(Math.max(0, +e.target.value))}
+                      onChange={(e) => { setQuoteDriverSalary(Math.max(0, +e.target.value)); setRateAuto(true); }}
                       placeholder="0"
                       className="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
                     />
@@ -900,6 +870,36 @@ export default function TripsPage() {
                     {hasDistance ? formatCurrency(quoteEstimatedCost) : '—'}
                   </p>
                   <p className="text-xs text-slate-500">combustible + seguro + desgaste + sueldo diario</p>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-slate-600/50 space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400 shrink-0">Utilidad:</span>
+                  <input type="range" min={0} max={100} value={quoteMargin}
+                    onChange={(e) => handleMarginChange(+e.target.value)}
+                    className="flex-1 h-1.5 bg-slate-600 rounded-full appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <input type="number" min={0} max={200} value={quoteMargin}
+                    onChange={(e) => handleMarginChange(Math.max(0, +e.target.value))}
+                    className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white text-right focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-xs text-slate-400">%</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Utilidad ({quoteMargin}%)</p>
+                    <p className={`text-lg font-bold ${hasDistance ? 'text-emerald-400' : 'text-slate-600'}`}>
+                      {hasDistance ? formatCurrency(quoteProfit) : '—'}
+                    </p>
+                    <p className="text-xs text-slate-500">sugerido {DEFAULT_MARGIN}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">Tarifa propuesta</p>
+                    <p className={`text-lg font-bold ${hasDistance ? 'text-white' : 'text-slate-600'}`}>
+                      {hasDistance ? formatCurrency(quoteAutoRate) : '—'}
+                    </p>
+                    <p className="text-xs text-slate-500">total estimado + utilidad</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -942,7 +942,7 @@ export default function TripsPage() {
           </FormField>
 
           <FormField label="Tarifa Propuesta (MXN)" required>
-            <Input type="number" value={quoteForm.proposedRate} onChange={(e) => fq('proposedRate', +e.target.value)} min={0} />
+            <Input type="number" value={quoteForm.proposedRate} onChange={(e) => { setRateAuto(false); fq('proposedRate', +e.target.value); }} min={0} />
           </FormField>
           <FormField label="Válida Hasta" required>
             <Input type="date" value={quoteForm.validUntil} onChange={(e) => fq('validUntil', e.target.value)} />
