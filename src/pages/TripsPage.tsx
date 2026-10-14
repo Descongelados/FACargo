@@ -31,6 +31,8 @@ const TRAILER_TYPES: TrailerType[] = [
 ];
 
 const MIN_KM = 10;
+// Costo fijo por km de desgaste y mantenimiento (MXN)
+const WEAR_COST_PER_KM = 2;
 
 // Valores por defecto de combustible (mismos que el calculador de Flotilla)
 const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number }> = {
@@ -52,7 +54,7 @@ const EMPTY_QUOTE: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'> = {
   clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '',
   vehicleId: '', vehicleUnit: '',
   origin: '', destination: '', cargoDescription: '', cargoWeightKg: 0,
-  distanceKm: 0, trailerType: 'Dry Van (Caja Seca)', proposedRate: 0,
+  distanceKm: MIN_KM, trailerType: 'Dry Van (Caja Seca)', proposedRate: 0,
   validUntil: '', status: 'draft', notes: '',
 };
 
@@ -249,6 +251,8 @@ export default function TripsPage() {
   const [quoteMargin, setQuoteMargin] = useState(20);
   // Precio por litro editado a mano (null = usar el valor por defecto del combustible)
   const [quotePriceInput, setQuotePriceInput] = useState<number | null>(null);
+  // Sueldo del operador para este viaje, capturado a mano (MXN)
+  const [quoteDriverSalary, setQuoteDriverSalary] = useState(0);
 
   // ─── Costo/km de la unidad seleccionada en la cotización ──────────────────
   const quoteCostPerKm = useMemo(() => {
@@ -271,7 +275,8 @@ export default function TripsPage() {
   const quoteFuelCost = quoteLiters * quotePricePerLiter;
   const quotePolicy = quoteVehicle ? policies.find(p => p.vehicleId === quoteVehicle.id) : undefined;
   const quoteInsuranceDay = quotePolicy ? quotePolicy.annualPremium / 365 : 0;
-  const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay;
+  const quoteWearCost = hasDistance ? quoteForm.distanceKm * WEAR_COST_PER_KM : 0;
+  const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay + quoteWearCost + quoteDriverSalary;
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
 
@@ -342,6 +347,7 @@ export default function TripsPage() {
     setKmError('');
     setQuoteMargin(20);
     setQuotePriceInput(null);
+    setQuoteDriverSalary(0);
     setQuoteModalOpen(true);
   };
   const openEditQuote = (q: Quote) => {
@@ -352,6 +358,7 @@ export default function TripsPage() {
     setKmError('');
     setQuoteMargin(20);
     setQuotePriceInput(null);
+    setQuoteDriverSalary(0);
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
@@ -823,7 +830,7 @@ export default function TripsPage() {
             </div>
           )}
 
-          {/* Costo estimado: combustible (km ÷ rendimiento × precio) + 1 día de seguro */}
+          {/* Costo estimado: combustible (km ÷ rendimiento × precio) + 1 día de seguro + desgaste ($/km) + sueldo del operador */}
           {quoteVehicle && (
             <div className="col-span-2 p-3 bg-slate-700/30 border border-slate-600/50 rounded-xl space-y-3">
               <div className="flex items-center justify-between gap-3">
@@ -862,11 +869,30 @@ export default function TripsPage() {
                   </p>
                 </div>
                 <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Desgaste y mant.</p>
+                  <p className={`text-lg font-bold ${hasDistance ? 'text-sky-400' : 'text-slate-600'}`}>
+                    {hasDistance ? formatCurrency(quoteWearCost) : '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">${WEAR_COST_PER_KM} MXN / km</p>
+                </div>
+                <div className="text-center pt-3 border-t border-slate-600/50">
+                  <p className="text-xs text-slate-400 mb-1">Sueldo del operador</p>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-slate-400 text-xs">$</span>
+                    <input type="number" min={0} step={50} value={quoteDriverSalary || ''}
+                      onChange={(e) => setQuoteDriverSalary(Math.max(0, +e.target.value))}
+                      placeholder="0"
+                      className="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">captura manual</p>
+                </div>
+                <div className="col-span-2 text-center pt-3 border-t border-slate-600/50">
                   <p className="text-xs text-slate-400 mb-1">Total estimado</p>
                   <p className={`text-lg font-bold ${hasDistance ? 'text-amber-400' : 'text-slate-600'}`}>
                     {hasDistance ? formatCurrency(quoteEstimatedCost) : '—'}
                   </p>
-                  <p className="text-xs text-slate-500">combustible + seguro</p>
+                  <p className="text-xs text-slate-500">combustible + seguro + desgaste + sueldo</p>
                 </div>
               </div>
             </div>
