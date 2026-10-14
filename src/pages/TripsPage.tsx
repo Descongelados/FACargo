@@ -33,6 +33,8 @@ const TRAILER_TYPES: TrailerType[] = [
 const MIN_KM = 10;
 // Costo fijo por km de desgaste y mantenimiento (MXN)
 const WEAR_COST_PER_KM = 2;
+// Días entre los que se divide el sueldo semanal para obtener el costo diario
+const WORK_DAYS_PER_WEEK = 7;
 
 // Valores por defecto de combustible (mismos que el calculador de Flotilla)
 const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number }> = {
@@ -251,7 +253,7 @@ export default function TripsPage() {
   const [quoteMargin, setQuoteMargin] = useState(20);
   // Precio por litro editado a mano (null = usar el valor por defecto del combustible)
   const [quotePriceInput, setQuotePriceInput] = useState<number | null>(null);
-  // Sueldo del operador para este viaje, capturado a mano (MXN)
+  // Sueldo semanal del operador, capturado a mano (MXN)
   const [quoteDriverSalary, setQuoteDriverSalary] = useState(0);
 
   // ─── Costo/km de la unidad seleccionada en la cotización ──────────────────
@@ -276,7 +278,8 @@ export default function TripsPage() {
   const quotePolicy = quoteVehicle ? policies.find(p => p.vehicleId === quoteVehicle.id) : undefined;
   const quoteInsuranceDay = quotePolicy ? quotePolicy.annualPremium / 365 : 0;
   const quoteWearCost = hasDistance ? quoteForm.distanceKm * WEAR_COST_PER_KM : 0;
-  const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay + quoteWearCost + quoteDriverSalary;
+  const quoteDriverSalaryDay = quoteDriverSalary / WORK_DAYS_PER_WEEK;
+  const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay + quoteWearCost + quoteDriverSalaryDay;
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
 
@@ -876,7 +879,7 @@ export default function TripsPage() {
                   <p className="text-xs text-slate-500">${WEAR_COST_PER_KM} MXN / km</p>
                 </div>
                 <div className="text-center pt-3 border-t border-slate-600/50">
-                  <p className="text-xs text-slate-400 mb-1">Sueldo del operador</p>
+                  <p className="text-xs text-slate-400 mb-1">Sueldo semanal del operador</p>
                   <div className="flex items-center justify-center gap-1">
                     <span className="text-slate-400 text-xs">$</span>
                     <input type="number" min={0} step={50} value={quoteDriverSalary || ''}
@@ -885,14 +888,18 @@ export default function TripsPage() {
                       className="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
                     />
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">captura manual</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {quoteDriverSalary > 0
+                      ? `${formatCurrency(quoteDriverSalaryDay)} / día (÷ ${WORK_DAYS_PER_WEEK})`
+                      : `÷ ${WORK_DAYS_PER_WEEK} días`}
+                  </p>
                 </div>
                 <div className="col-span-2 text-center pt-3 border-t border-slate-600/50">
                   <p className="text-xs text-slate-400 mb-1">Total estimado</p>
                   <p className={`text-lg font-bold ${hasDistance ? 'text-amber-400' : 'text-slate-600'}`}>
                     {hasDistance ? formatCurrency(quoteEstimatedCost) : '—'}
                   </p>
-                  <p className="text-xs text-slate-500">combustible + seguro + desgaste + sueldo</p>
+                  <p className="text-xs text-slate-500">combustible + seguro + desgaste + sueldo diario</p>
                 </div>
               </div>
             </div>
