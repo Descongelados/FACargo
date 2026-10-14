@@ -1,26 +1,62 @@
 import { create } from 'zustand';
 import { Vehicle } from '../types';
-import { MOCK_VEHICLES } from '../data/mockData';
+import { supabase } from '../lib/supabase';
+import { vehicleFromDB, vehicleToDB } from '../lib/mappers';
 
 interface VehiclesState {
   vehicles: Vehicle[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
-  updateVehicle: (id: string, vehicle: Partial<Vehicle>) => void;
-  deleteVehicle: (id: string) => void;
+  loading: boolean;
+  loadVehicles: () => Promise<void>;
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<void>;
+  updateVehicle: (id: string, vehicle: Partial<Vehicle>) => Promise<void>;
+  deleteVehicle: (id: string) => Promise<void>;
 }
 
 export const useVehiclesStore = create<VehiclesState>((set) => ({
-  vehicles: MOCK_VEHICLES,
-  addVehicle: (data) =>
-    set((state) => ({
-      vehicles: [...state.vehicles, { ...data, id: `veh-${Date.now()}` }],
-    })),
-  updateVehicle: (id, updated) =>
-    set((state) => ({
-      vehicles: state.vehicles.map((v) => (v.id === id ? { ...v, ...updated } : v)),
-    })),
-  deleteVehicle: (id) =>
-    set((state) => ({
-      vehicles: state.vehicles.filter((v) => v.id !== id),
-    })),
+  vehicles: [],
+  loading: false,
+
+  loadVehicles: async () => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .order('unit_number');
+    if (!error && data) {
+      set({ vehicles: data.map(vehicleFromDB) });
+    }
+    set({ loading: false });
+  },
+
+  addVehicle: async (data) => {
+    const { data: row, error } = await supabase
+      .from('vehicles')
+      .insert(vehicleToDB(data))
+      .select()
+      .single();
+    if (!error && row) {
+      set((state) => ({ vehicles: [...state.vehicles, vehicleFromDB(row)] }));
+    }
+  },
+
+  updateVehicle: async (id, updated) => {
+    const { data: row, error } = await supabase
+      .from('vehicles')
+      .update(updated)
+      .eq('id', id)
+      .select()
+      .single();
+    if (!error && row) {
+      set((state) => ({
+        vehicles: state.vehicles.map((v) => (v.id === id ? vehicleFromDB(row) : v)),
+      }));
+    }
+  },
+
+  deleteVehicle: async (id) => {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({ vehicles: state.vehicles.filter((v) => v.id !== id) }));
+    }
+  },
 }));

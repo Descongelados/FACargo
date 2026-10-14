@@ -171,7 +171,7 @@ export default function AccountingPage() {
 
   const handleClosePeriod = () => {
     if (selectedPeriod) {
-      closePeriod(selectedPeriod.id, currentUser.name, closeNotes);
+      closePeriod(selectedPeriod.id, currentUser?.name ?? 'sistema', closeNotes);
       setCloseModalOpen(false);
       setCloseNotes('');
     }

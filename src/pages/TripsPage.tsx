@@ -38,7 +38,9 @@ const FUEL_DEFAULTS: Record<string, { pricePerLiter: number; kmPerLiter: number 
   'Gas LP':   { pricePerLiter: 12.00, kmPerLiter: 3.0 },
 };
 
-const EMPTY_TRIP: Omit<Trip, 'id' | 'tripNumber'> = {
+type TripFormData = Omit<Trip, 'id' | 'tripNumber'>;
+
+const EMPTY_TRIP: TripFormData = {
   clientId: '', clientName: '', driverId: '', driverName: '',
   vehicleId: '', vehicleUnit: '', origin: '', destination: '',
   cargoDescription: '', cargoWeightKg: 0, departureDate: '',
@@ -287,7 +289,8 @@ export default function TripsPage() {
     setTripForm(rest); setEditingTripId(id); setTripModalOpen(true);
   };
   const handleSaveTrip = () => {
-    if (editingTripId) updateTrip(editingTripId, tripForm); else addTrip(tripForm);
+    const { clientName: _cn, driverName: _dn, vehicleUnit: _vu, ...tripData } = tripForm;
+    if (editingTripId) updateTrip(editingTripId, tripForm); else addTrip(tripData);
     setTripModalOpen(false);
   };
   const ft = (key: keyof typeof tripForm, val: string | number) =>
@@ -392,9 +395,9 @@ export default function TripsPage() {
 
   const convertToTrip = (q: Quote) => {
     addTrip({
-      clientId: q.clientId, clientName: q.clientName,
-      driverId: '', driverName: '',
-      vehicleId: q.vehicleId ?? '', vehicleUnit: q.vehicleUnit ?? '',
+      clientId: q.clientId,
+      driverId: '',
+      vehicleId: q.vehicleId ?? '',
       origin: q.origin, destination: q.destination,
       cargoDescription: q.cargoDescription, cargoWeightKg: q.cargoWeightKg,
       distanceKm: q.distanceKm, departureDate: '', deliveryDate: '',

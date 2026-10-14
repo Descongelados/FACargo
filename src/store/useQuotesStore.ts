@@ -1,39 +1,82 @@
 import { create } from 'zustand';
 import { Quote, QuoteStatus } from '../types';
-import { MOCK_QUOTES } from '../data/mockQuotes';
+import { supabase } from '../lib/supabase';
+import { quoteFromDB, quoteToDB } from '../lib/mappers';
 
 interface QuotesState {
   quotes: Quote[];
-  addQuote: (quote: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>) => void;
-  updateQuote: (id: string, quote: Partial<Quote>) => void;
-  updateQuoteStatus: (id: string, status: QuoteStatus) => void;
-  deleteQuote: (id: string) => void;
+  loading: boolean;
+  loadQuotes: () => Promise<void>;
+  addQuote: (quote: Omit<Quote, 'id' | 'quoteNumber' | 'clientName' | 'vehicleUnit' | 'createdAt'>) => Promise<void>;
+  updateQuote: (id: string, quote: Partial<Quote>) => Promise<void>;
+  updateQuoteStatus: (id: string, status: QuoteStatus) => Promise<void>;
+  deleteQuote: (id: string) => Promise<void>;
 }
 
 export const useQuotesStore = create<QuotesState>((set) => ({
-  quotes: MOCK_QUOTES,
-  addQuote: (data) =>
-    set((state) => {
-      const count = state.quotes.length + 1;
-      const quoteNumber = `COT-${new Date().getFullYear()}-${String(count).padStart(3, '0')}`;
-      const newQuote: Quote = {
-        ...data,
-        id: `qot-${Date.now()}`,
-        quoteNumber,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      return { quotes: [newQuote, ...state.quotes] };
-    }),
-  updateQuote: (id, updated) =>
-    set((state) => ({
-      quotes: state.quotes.map((q) => (q.id === id ? { ...q, ...updated } : q)),
-    })),
-  updateQuoteStatus: (id, status) =>
-    set((state) => ({
-      quotes: state.quotes.map((q) => (q.id === id ? { ...q, status } : q)),
-    })),
-  deleteQuote: (id) =>
-    set((state) => ({
-      quotes: state.quotes.filter((q) => q.id !== id),
-    })),
+  quotes: [],
+  loading: false,
+
+  loadQuotes: async () => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*, clients(name), vehicles(unit_number)')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      set({ quotes: data.map(quoteFromDB) });
+    }
+    set({ loading: false });
+  },
+
+  addQuote: async (quoteData) => {
+    const { count } = await supabase
+      .from('quotes')
+      .select('*', { count: 'exact', head: true });
+    const quoteNumber = `COT-${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(3, '0')}`;
+
+    const { data: row, error } = await supabase
+      .from('quotes')
+      .insert({ ...quoteToDB(quoteData), quote_number: quoteNumber })
+      .select('*, clients(name), vehicles(unit_number)')
+      .single();
+    if (!error && row) {
+      set((state) => ({ quotes: [quoteFromDB(row), ...state.quotes] }));
+    }
+  },
+
+  updateQuote: async (id, updated) => {
+    const { data: row, error } = await supabase
+      .from('quotes')
+      .update(updated)
+      .eq('id', id)
+      .select('*, clients(name), vehicles(unit_number)')
+      .single();
+    if (!error && row) {
+      set((state) => ({
+        quotes: state.quotes.map((q) => (q.id === id ? quoteFromDB(row) : q)),
+      }));
+    }
+  },
+
+  updateQuoteStatus: async (id, status) => {
+    const { data: row, error } = await supabase
+      .from('quotes')
+      .update({ status })
+      .eq('id', id)
+      .select('*, clients(name), vehicles(unit_number)')
+      .single();
+    if (!error && row) {
+      set((state) => ({
+        quotes: state.quotes.map((q) => (q.id === id ? quoteFromDB(row) : q)),
+      }));
+    }
+  },
+
+  deleteQuote: async (id) => {
+    const { error } = await supabase.from('quotes').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({ quotes: state.quotes.filter((q) => q.id !== id) }));
+    }
+  },
 }));

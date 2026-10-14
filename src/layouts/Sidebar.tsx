@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, Truck, Map, Receipt,
   Wrench, BarChart3, Shield, Settings, TruckIcon, ChevronLeft, ChevronRight,
@@ -29,10 +29,9 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { currentUser } = useAuthStore();
-  const location = useLocation();
 
   const visibleItems = NAV_ITEMS.filter((item) =>
-    hasPermission(currentUser.role, item.permission)
+    currentUser ? hasPermission(currentUser.role, item.permission) : false
   );
 
   return (

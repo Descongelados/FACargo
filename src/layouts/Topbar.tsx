@@ -1,9 +1,11 @@
-import { Bell, User, ChevronDown } from 'lucide-react';
+import { Bell, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { ROLE_LABELS } from '../constants/roles';
 
 export default function Topbar() {
-  const { currentUser, switchUser, users } = useAuthStore();
+  const { currentUser, signOut } = useAuthStore();
+
+  if (!currentUser) return null;
 
   return (
     <header className="h-14 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between px-6 shrink-0">
@@ -28,27 +30,15 @@ export default function Topbar() {
             <ChevronDown className="w-4 h-4 text-slate-400" />
           </button>
 
-          {/* Dropdown cambiar usuario (demo) */}
-          <div className="absolute right-0 top-full mt-1 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+          {/* Dropdown */}
+          <div className="absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
             <div className="p-2">
-              <p className="text-xs text-slate-500 px-2 py-1 font-medium uppercase tracking-wider">Cambiar usuario (demo)</p>
-              {users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => switchUser(u.id)}
-                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors ${
-                    u.id === currentUser.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                  }`}
-                >
-                  <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center text-xs font-bold">
-                    {u.name.charAt(0)}
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium leading-tight">{u.name}</p>
-                    <p className="text-xs text-slate-400 leading-tight">{ROLE_LABELS[u.role]}</p>
-                  </div>
-                </button>
-              ))}
+              <button
+                onClick={signOut}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-rose-400 hover:bg-rose-500/10 transition-colors"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
         </div>

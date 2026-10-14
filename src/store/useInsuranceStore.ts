@@ -1,30 +1,62 @@
 import { create } from 'zustand';
 import { InsurancePolicy } from '../types';
-
-const MOCK_POLICIES: InsurancePolicy[] = [];
+import { supabase } from '../lib/supabase';
+import { insuranceFromDB, insuranceToDB } from '../lib/mappers';
 
 interface InsuranceState {
   policies: InsurancePolicy[];
-  addPolicy: (policy: Omit<InsurancePolicy, 'id'>) => void;
-  updatePolicy: (id: string, policy: Partial<InsurancePolicy>) => void;
-  deletePolicy: (id: string) => void;
+  loading: boolean;
+  loadPolicies: () => Promise<void>;
+  addPolicy: (policy: Omit<InsurancePolicy, 'id' | 'vehicleUnit'>) => Promise<void>;
+  updatePolicy: (id: string, policy: Partial<InsurancePolicy>) => Promise<void>;
+  deletePolicy: (id: string) => Promise<void>;
 }
 
 export const useInsuranceStore = create<InsuranceState>((set) => ({
-  policies: MOCK_POLICIES,
+  policies: [],
+  loading: false,
 
-  addPolicy: (data) =>
-    set((state) => ({
-      policies: [...state.policies, { ...data, id: `ins-${Date.now()}` }],
-    })),
+  loadPolicies: async () => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('insurance_policies')
+      .select('*, vehicles(unit_number)')
+      .order('end_date', { ascending: true });
+    if (!error && data) {
+      set({ policies: data.map(insuranceFromDB) });
+    }
+    set({ loading: false });
+  },
 
-  updatePolicy: (id, updated) =>
-    set((state) => ({
-      policies: state.policies.map((p) => (p.id === id ? { ...p, ...updated } : p)),
-    })),
+  addPolicy: async (data) => {
+    const { data: row, error } = await supabase
+      .from('insurance_policies')
+      .insert(insuranceToDB(data))
+      .select('*, vehicles(unit_number)')
+      .single();
+    if (!error && row) {
+      set((state) => ({ policies: [...state.policies, insuranceFromDB(row)] }));
+    }
+  },
 
-  deletePolicy: (id) =>
-    set((state) => ({
-      policies: state.policies.filter((p) => p.id !== id),
-    })),
+  updatePolicy: async (id, updated) => {
+    const { data: row, error } = await supabase
+      .from('insurance_policies')
+      .update(updated)
+      .eq('id', id)
+      .select('*, vehicles(unit_number)')
+      .single();
+    if (!error && row) {
+      set((state) => ({
+        policies: state.policies.map((p) => (p.id === id ? insuranceFromDB(row) : p)),
+      }));
+    }
+  },
+
+  deletePolicy: async (id) => {
+    const { error } = await supabase.from('insurance_policies').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({ policies: state.policies.filter((p) => p.id !== id) }));
+    }
+  },
 }));

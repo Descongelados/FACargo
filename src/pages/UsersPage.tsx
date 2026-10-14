@@ -18,15 +18,15 @@ const ROLE_COLORS: Record<Role, string> = {
   viewer: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
 };
 
-const EMPTY_USER: Omit<User, 'id'> = {
-  name: '', email: '', role: 'viewer', status: 'active',
-};
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'viewer' as Role };
 
 export default function UsersPage() {
-  const { users, addUser, currentUser } = useAuthStore();
+  const { users, addUser, currentUser, loadUsers } = useAuthStore();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState<Omit<User, 'id'>>(EMPTY_USER);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const filtered = users.filter(
     (u) =>
@@ -34,9 +34,16 @@ export default function UsersPage() {
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openAdd = () => { setForm(EMPTY_USER); setIsModalOpen(true); };
-  const handleSave = () => { addUser(form); setIsModalOpen(false); };
-  const f = (key: keyof Omit<User, 'id'>, val: string) =>
+  const openAdd = () => { setForm(EMPTY_FORM); setSaveError(null); setIsModalOpen(true); };
+  const handleSave = async () => {
+    setSaving(true);
+    const err = await addUser(form.email, form.password, form.name, form.role);
+    setSaving(false);
+    if (err) { setSaveError(err); return; }
+    await loadUsers();
+    setIsModalOpen(false);
+  };
+  const f = (key: keyof typeof EMPTY_FORM, val: string) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
   return (
@@ -131,7 +138,7 @@ export default function UsersPage() {
                         </div>
                         <div>
                           <p className="font-medium text-white">{u.name}</p>
-                          {u.id === currentUser.id && <p className="text-xs text-blue-400">Sesión activa</p>}
+                            {currentUser && u.id === currentUser.id && <p className="text-xs text-blue-400">Sesión activa</p>}
                         </div>
                       </div>
                     </td>
@@ -166,6 +173,9 @@ export default function UsersPage() {
           <FormField label="Email" required>
             <Input type="email" value={form.email} onChange={(e) => f('email', e.target.value)} placeholder="usuario@empresa.com" />
           </FormField>
+          <FormField label="Contraseña" required>
+            <Input type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••••" />
+          </FormField>
           <FormField label="Rol" required>
             <Select value={form.role} onChange={(e) => f('role', e.target.value as Role)}>
               {(Object.entries(ROLE_LABELS) as [Role, string][]).map(([k, v]) => (
@@ -173,16 +183,15 @@ export default function UsersPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Estatus">
-            <Select value={form.status} onChange={(e) => f('status', e.target.value as 'active' | 'inactive')}>
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
-            </Select>
-          </FormField>
+          {saveError && (
+            <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{saveError}</p>
+          )}
         </div>
         <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-slate-700">
           <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-medium">Crear Usuario</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors font-medium">
+            {saving ? 'Creando...' : 'Crear Usuario'}
+          </button>
         </div>
       </Modal>
     </div>

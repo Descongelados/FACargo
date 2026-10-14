@@ -1,26 +1,62 @@
 import { create } from 'zustand';
 import { Client } from '../types';
-import { MOCK_CLIENTS } from '../data/mockData';
+import { supabase } from '../lib/supabase';
+import { clientFromDB, clientToDB } from '../lib/mappers';
 
 interface ClientsState {
   clients: Client[];
-  addClient: (client: Omit<Client, 'id'>) => void;
-  updateClient: (id: string, client: Partial<Client>) => void;
-  deleteClient: (id: string) => void;
+  loading: boolean;
+  loadClients: () => Promise<void>;
+  addClient: (client: Omit<Client, 'id'>) => Promise<void>;
+  updateClient: (id: string, client: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
 }
 
 export const useClientsStore = create<ClientsState>((set) => ({
-  clients: MOCK_CLIENTS,
-  addClient: (data) =>
-    set((state) => ({
-      clients: [...state.clients, { ...data, id: `cli-${Date.now()}` }],
-    })),
-  updateClient: (id, updated) =>
-    set((state) => ({
-      clients: state.clients.map((c) => (c.id === id ? { ...c, ...updated } : c)),
-    })),
-  deleteClient: (id) =>
-    set((state) => ({
-      clients: state.clients.filter((c) => c.id !== id),
-    })),
+  clients: [],
+  loading: false,
+
+  loadClients: async () => {
+    set({ loading: true });
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name');
+    if (!error && data) {
+      set({ clients: data.map(clientFromDB) });
+    }
+    set({ loading: false });
+  },
+
+  addClient: async (data) => {
+    const { data: row, error } = await supabase
+      .from('clients')
+      .insert(clientToDB(data))
+      .select()
+      .single();
+    if (!error && row) {
+      set((state) => ({ clients: [...state.clients, clientFromDB(row)] }));
+    }
+  },
+
+  updateClient: async (id, updated) => {
+    const { data: row, error } = await supabase
+      .from('clients')
+      .update(updated)
+      .eq('id', id)
+      .select()
+      .single();
+    if (!error && row) {
+      set((state) => ({
+        clients: state.clients.map((c) => (c.id === id ? clientFromDB(row) : c)),
+      }));
+    }
+  },
+
+  deleteClient: async (id) => {
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({ clients: state.clients.filter((c) => c.id !== id) }));
+    }
+  },
 }));
