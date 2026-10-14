@@ -311,6 +311,16 @@ export default function VehiclesPage() {
                       </div>
                       <span className="text-white font-medium">{formatNumber(v.odometer)} km</span>
                     </div>
+                    {/* Indicador de rendimiento */}
+                    {v.kmPerLiter != null && (
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Fuel className="w-3.5 h-3.5" />
+                          <span className="text-xs">Rendimiento</span>
+                        </div>
+                        <span className="text-amber-400 font-medium text-xs">{v.kmPerLiter} km/L</span>
+                      </div>
+                    )}
                     {/* Indicador de seguro */}
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex items-center gap-1.5 text-slate-400">
@@ -736,10 +746,17 @@ export default function VehiclesPage() {
             </div>
 
             {/* ── Resultado ── */}
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-              <p className="text-xs text-amber-300/70 mb-1">Costo de combustible / km</p>
-              <p className="text-3xl font-bold text-amber-400">${fuelCostPerKm.toFixed(2)}</p>
-              <p className="text-xs text-slate-500 mt-1">MXN / km</p>
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+              <div className="text-center">
+                <p className="text-xs text-amber-300/70 mb-1">Costo de combustible / km</p>
+                <p className="text-3xl font-bold text-amber-400">${fuelCostPerKm.toFixed(2)}</p>
+                <p className="text-xs text-slate-500 mt-1">MXN / km</p>
+              </div>
+              <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-amber-500/20">
+                <Fuel className="w-3.5 h-3.5 text-amber-300/60" />
+                <span className="text-xs text-amber-300/70">Rendimiento actual:</span>
+                <span className="text-sm font-bold text-amber-300">{kmPerLiter} km/L</span>
+              </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-700">
