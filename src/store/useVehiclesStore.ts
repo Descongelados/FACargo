@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Vehicle } from '../types';
 import { supabase } from '../lib/supabase';
-import { vehicleFromDB, vehicleToDB } from '../lib/mappers';
+import { vehicleFromDB, vehicleToDB , toDBPatch } from '../lib/mappers';
 
 interface VehiclesState {
   vehicles: Vehicle[];
@@ -42,7 +42,7 @@ export const useVehiclesStore = create<VehiclesState>((set) => ({
   updateVehicle: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('vehicles')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select()
       .single();

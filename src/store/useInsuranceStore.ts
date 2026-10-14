@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { InsurancePolicy } from '../types';
 import { supabase } from '../lib/supabase';
-import { insuranceFromDB, insuranceToDB } from '../lib/mappers';
+import { insuranceFromDB, insuranceToDB , toDBPatch } from '../lib/mappers';
 
 interface InsuranceState {
   policies: InsurancePolicy[];
@@ -42,7 +42,7 @@ export const useInsuranceStore = create<InsuranceState>((set) => ({
   updatePolicy: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('insurance_policies')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select('*, vehicles(unit_number)')
       .single();

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { AccountingEntry, AccountingPeriod } from '../types';
 import { supabase } from '../lib/supabase';
-import { periodFromDB, periodToDB, entryFromDB, entryToDB } from '../lib/mappers';
+import { periodFromDB, periodToDB, entryFromDB, entryToDB , toDBPatch } from '../lib/mappers';
 
 interface AccountingState {
   periods: AccountingPeriod[];
@@ -105,7 +105,7 @@ export const useAccountingStore = create<AccountingState>((set) => ({
   updateEntry: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('accounting_entries')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select()
       .single();

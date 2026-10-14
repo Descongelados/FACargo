@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Expense } from '../types';
 import { supabase } from '../lib/supabase';
-import { expenseFromDB, expenseToDB } from '../lib/mappers';
+import { expenseFromDB, expenseToDB , toDBPatch } from '../lib/mappers';
 
 interface ExpensesState {
   expenses: Expense[];
@@ -42,7 +42,7 @@ export const useExpensesStore = create<ExpensesState>((set) => ({
   updateExpense: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('expenses')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select('*, trips(trip_number)')
       .single();

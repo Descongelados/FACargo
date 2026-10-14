@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Maintenance } from '../types';
 import { supabase } from '../lib/supabase';
-import { maintenanceFromDB, maintenanceToDB } from '../lib/mappers';
+import { maintenanceFromDB, maintenanceToDB , toDBPatch } from '../lib/mappers';
 
 interface MaintenanceState {
   maintenances: Maintenance[];
@@ -42,7 +42,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
   updateMaintenance: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('maintenances')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select('*, vehicles(unit_number)')
       .single();

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Driver } from '../types';
 import { supabase } from '../lib/supabase';
-import { driverFromDB, driverToDB } from '../lib/mappers';
+import { driverFromDB, driverToDB , toDBPatch } from '../lib/mappers';
 
 interface DriversState {
   drivers: Driver[];
@@ -42,7 +42,7 @@ export const useDriversStore = create<DriversState>((set) => ({
   updateDriver: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('drivers')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select()
       .single();

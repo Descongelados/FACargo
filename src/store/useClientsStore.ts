@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Client } from '../types';
 import { supabase } from '../lib/supabase';
-import { clientFromDB, clientToDB } from '../lib/mappers';
+import { clientFromDB, clientToDB , toDBPatch } from '../lib/mappers';
 
 interface ClientsState {
   clients: Client[];
@@ -42,7 +42,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
   updateClient: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('clients')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select()
       .single();

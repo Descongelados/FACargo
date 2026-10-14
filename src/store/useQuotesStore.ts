@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Quote, QuoteStatus } from '../types';
 import { supabase } from '../lib/supabase';
-import { quoteFromDB, quoteToDB } from '../lib/mappers';
+import { quoteFromDB, quoteToDB , toDBPatch } from '../lib/mappers';
 
 interface QuotesState {
   quotes: Quote[];
@@ -48,7 +48,7 @@ export const useQuotesStore = create<QuotesState>((set) => ({
   updateQuote: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('quotes')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select('*, clients(name), vehicles(unit_number)')
       .single();

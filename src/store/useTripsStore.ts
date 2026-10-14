@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Trip, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
-import { tripFromDB, tripToDB } from '../lib/mappers';
+import { tripFromDB, tripToDB , toDBPatch } from '../lib/mappers';
 
 interface TripsState {
   trips: Trip[];
@@ -49,7 +49,7 @@ export const useTripsStore = create<TripsState>((set) => ({
   updateTrip: async (id, updated) => {
     const { data: row, error } = await supabase
       .from('trips')
-      .update(updated)
+      .update(toDBPatch(updated))
       .eq('id', id)
       .select('*, clients(name), drivers(full_name), vehicles(unit_number)')
       .single();
