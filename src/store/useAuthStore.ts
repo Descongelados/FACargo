@@ -68,7 +68,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signIn: async (email, password) => {
+  signIn: async (username, password) => {
+    // Si no trae '@', es un usuario simple: se completa con el dominio interno
+    const email = username.includes('@') ? username.trim() : `${username.trim()}@facargo.com`;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return error.message;
     return null;

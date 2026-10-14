@@ -4,7 +4,7 @@ import { Truck } from 'lucide-react';
 
 export default function LoginPage() {
   const signIn = useAuthStore((s) => s.signIn);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -13,7 +13,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const err = await signIn(email, password);
+    const err = await signIn(username, password);
     if (err) setError(err);
     setLoading(false);
   };
@@ -36,16 +36,17 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                Correo electrónico
+                Usuario
               </label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400
                            rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="usuario@empresa.com"
+                placeholder="usuario"
               />
             </div>
 
