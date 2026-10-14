@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Wrench, Pencil, Trash2, CheckCircle, Clock, AlertCircle, CalendarClock } from 'lucide-react';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
 import { Maintenance, MaintenanceType, MaintenanceStatus } from '../types';
@@ -67,6 +67,29 @@ export default function MaintenancePage() {
 
   const totalCost = maintenances.reduce((s, m) => s + m.cost, 0);
 
+  // ─── Vista de próximos mantenimientos cada 6 meses ────────────────────────
+  const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+  const ONE_WEEK_MS   = 7 * 24 * 60 * 60 * 1000;
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+  const scheduleItems = useMemo(() => {
+    const now = Date.now();
+    return vehicles.map((v) => {
+      // último mantenimiento completado de esta unidad
+      const completed = maintenances
+        .filter((m) => m.vehicleId === v.id && m.status === 'completed' && m.date)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const last = completed[0] ?? null;
+      const lastDate = last ? new Date(last.date) : null;
+      const nextDate = lastDate ? new Date(lastDate.getTime() + SIX_MONTHS_MS) : null;
+      const msLeft   = nextDate ? nextDate.getTime() - now : null;
+      return { vehicle: v, lastDate, nextDate, msLeft };
+    }).filter((item) => item.nextDate !== null && item.msLeft! <= THIRTY_DAYS_MS)
+      .sort((a, b) => a.msLeft! - b.msLeft!);
+  }, [vehicles, maintenances]);
+
+  const criticalItems = scheduleItems.filter((i) => i.msLeft! <= ONE_WEEK_MS);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -75,6 +98,73 @@ export default function MaintenancePage() {
         icon={Wrench}
         action={{ label: 'Nuevo Mantenimiento', onClick: openAdd }}
       />
+
+      {/* ── Alerta crítica (≤ 7 días) ── */}
+      {criticalItems.length > 0 && (
+        <div className="flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl">
+          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-rose-300 mb-0.5">
+              {criticalItems.length === 1
+                ? '1 unidad requiere mantenimiento urgente'
+                : `${criticalItems.length} unidades requieren mantenimiento urgente`}
+            </p>
+            <p className="text-xs text-slate-400">
+              {criticalItems.map((i) => {
+                const days = Math.ceil(i.msLeft! / (24 * 60 * 60 * 1000));
+                return days < 0
+                  ? `${i.vehicle.unitNumber} (vencido hace ${Math.abs(days)}d)`
+                  : `${i.vehicle.unitNumber} (vence en ${days}d)`;
+              }).join(' · ')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Panel de próximos mantenimientos (≤ 30 días) ── */}
+      {scheduleItems.length > 0 && (
+        <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+            <CalendarClock className="w-4 h-4 text-amber-400" />
+            <p className="text-sm font-semibold text-white">Próximos mantenimientos preventivos (6 meses)</p>
+            <span className="ml-auto text-xs text-slate-500">{scheduleItems.length} unidad{scheduleItems.length > 1 ? 'es' : ''}</span>
+          </div>
+          <div className="divide-y divide-slate-700/50">
+            {scheduleItems.map(({ vehicle, lastDate, nextDate, msLeft }) => {
+              const days      = Math.ceil(msLeft! / (24 * 60 * 60 * 1000));
+              const isOverdue = days < 0;
+              const isUrgent  = days >= 0 && days <= 7;
+              const colorText = isOverdue ? 'text-rose-400' : isUrgent ? 'text-amber-400' : 'text-emerald-400';
+              const colorBg   = isOverdue ? 'bg-rose-500/10 border-rose-500/20' : isUrgent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-slate-700/30 border-slate-600/30';
+              return (
+                <div key={vehicle.id} className="flex items-center gap-4 px-4 py-3">
+                  <div className="flex items-center gap-2 w-24 shrink-0">
+                    <Wrench className="w-4 h-4 text-slate-400" />
+                    <span className="font-semibold text-white text-sm">{vehicle.unitNumber}</span>
+                  </div>
+                  <div className="flex-1 text-xs text-slate-400 hidden sm:block">
+                    {vehicle.brand} {vehicle.model} {vehicle.year}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Último: <span className="text-slate-300">{lastDate ? lastDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Próximo: <span className="text-slate-300">{nextDate ? nextDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</span>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${colorBg} ${colorText} shrink-0`}>
+                    {isOverdue
+                      ? <><AlertCircle className="w-3 h-3" /> Vencido {Math.abs(days)}d</>
+                      : isUrgent
+                      ? <><AlertCircle className="w-3 h-3" /> {days}d restantes</>
+                      : <><Clock className="w-3 h-3" /> {days}d restantes</>
+                    }
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <div className="flex-1">
