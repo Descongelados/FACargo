@@ -377,7 +377,7 @@ export function toDBPatch(patch: object): Record<string, unknown> {
     }
     if (value === undefined) continue;
     const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    // Un id o fecha vac�os deben guardarse como NULL (uuid/date no aceptan '')
+    // Un id o fecha vacios deben guardarse como NULL (uuid/date no aceptan '')
     out[col] = value === '' && /(_id|_date)$/.test(col) ? null : value;
   }
   return out;

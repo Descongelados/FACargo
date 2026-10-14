@@ -1,19 +1,20 @@
-import { useEffect } from 'react';
+import { lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import ClientsPage from './pages/ClientsPage';
-import DriversPage from './pages/DriversPage';
-import VehiclesPage from './pages/VehiclesPage';
-import TripsPage from './pages/TripsPage';
-import ExpensesPage from './pages/ExpensesPage';
-import MaintenancePage from './pages/MaintenancePage';
-import AccountingPage from './pages/AccountingPage';
-import ReportsPage from './pages/ReportsPage';
-import UsersPage from './pages/UsersPage';
-import SettingsPage from './pages/SettingsPage';
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ClientsPage = lazy(() => import('./pages/ClientsPage'));
+const DriversPage = lazy(() => import('./pages/DriversPage'));
+const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
+const TripsPage = lazy(() => import('./pages/TripsPage'));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
+const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
+const AccountingPage = lazy(() => import('./pages/AccountingPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 export default function App() {
   const { currentUser, loading, initAuth } = useAuthStore();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import ErrorToast from '../components/ui/ErrorToast';
 import Sidebar from './Sidebar';
@@ -35,7 +35,9 @@ export default function MainLayout() {
       <div className="flex flex-col flex-1 min-w-0">
         <Topbar />
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <Suspense fallback={<div className="p-6 text-slate-400 text-sm animate-pulse">Cargando...</div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <ErrorToast />
