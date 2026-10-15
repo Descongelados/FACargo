@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
-  FileText, Plus, Send, XCircle, RotateCcw,
+  FileText, Plus, Share2, XCircle, RotateCcw,
   UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Fuel, Eye,
 } from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
@@ -17,7 +17,8 @@ import StatusBadge from '../components/ui/StatusBadge';
 import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
-import { QuotePreviewModal, QuoteShareModal } from '../components/quotes/QuoteModals';
+import { QuotePreviewModal } from '../components/quotes/QuoteModals';
+import { shareQuotePdf } from '../utils/quotePdf';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS, EXPENSE_CATEGORIES } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -246,7 +247,6 @@ export default function TripsPage() {
   // modales cotizaciones
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
-  const [shareQuote, setShareQuote] = useState<Quote | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'>>(EMPTY_QUOTE);
   const [guestClient, setGuestClient] = useState(false);
@@ -424,17 +424,6 @@ export default function TripsPage() {
   const toggleGuestClient = (isGuest: boolean) => {
     setGuestClient(isGuest);
     setQuoteForm(p => ({ ...p, clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '' }));
-  };
-
-  // Al compartir una cotización en borrador, pasa a Enviada
-  const handleQuoteShared = (q: Quote) => {
-    if (q.status === 'draft') updateQuoteStatus(q.id, 'sent');
-    setShareQuote(null);
-  };
-  // Datos de contacto para precargar el modal de compartir
-  const shareContact = (q: Quote) => {
-    const client = clients.find(c => c.id === q.clientId);
-    return { phone: q.guestClientPhone || client?.phone || '', email: q.guestClientEmail || client?.email || '' };
   };
 
   const convertToTrip = (q: Quote) => {
@@ -645,8 +634,8 @@ export default function TripsPage() {
                           <Eye className="w-3.5 h-3.5" /> Ver
                         </button>
                         {(quote.status === 'draft' || quote.status === 'sent') && (
-                          <button onClick={() => setShareQuote(quote)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
-                            <Send className="w-3.5 h-3.5" /> Enviar
+                          <button onClick={() => shareQuotePdf(quote)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
+                            <Share2 className="w-3.5 h-3.5" /> Compartir
                           </button>
                         )}
                         {QUOTE_NEXT[quote.status] && (
@@ -682,15 +671,6 @@ export default function TripsPage() {
       )}
 
       {previewQuote && <QuotePreviewModal quote={previewQuote} onClose={() => setPreviewQuote(null)} />}
-      {shareQuote && (
-        <QuoteShareModal
-          quote={shareQuote}
-          defaultPhone={shareContact(shareQuote).phone}
-          defaultEmail={shareContact(shareQuote).email}
-          onClose={() => setShareQuote(null)}
-          onShared={handleQuoteShared}
-        />
-      )}
 
       {/* ══ MODAL VIAJE ═════════════════════════════════════════════════════════ */}
       <Modal isOpen={tripModalOpen} onClose={() => setTripModalOpen(false)} title={editingTripId ? 'Editar Viaje' : 'Nuevo Viaje'} size="xl">

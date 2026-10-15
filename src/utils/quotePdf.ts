@@ -2,22 +2,6 @@ import type { Quote } from '../types';
 import { APP_NAME, QUOTE_STATUS_LABELS } from '../constants';
 import { formatCurrency, formatDate } from './formatters';
 
-/** Texto plano de la cotización, usado para compartir por WhatsApp o email. */
-export function buildQuoteText(q: Quote): string {
-  return [
-    `${APP_NAME} - Cotización ${q.quoteNumber}`,
-    '',
-    `Cliente: ${q.clientName}`,
-    `Ruta: ${q.origin} → ${q.destination}`,
-    `Distancia: ${q.distanceKm} km`,
-    `Carga: ${q.cargoDescription} (${q.cargoWeightKg.toLocaleString('es-MX')} kg)`,
-    `Remolque: ${q.trailerType}`,
-    `Tarifa: ${formatCurrency(q.proposedRate)}`,
-    `Válida hasta: ${formatDate(q.validUntil)}`,
-    ...(q.notes ? ['', `Notas: ${q.notes}`] : []),
-  ].join('\n');
-}
-
 /** Genera el PDF de la cotización. jspdf se carga bajo demanda para no inflar el bundle inicial. */
 export async function createQuotePdf(q: Quote) {
   const { jsPDF } = await import('jspdf');
@@ -96,4 +80,24 @@ export async function createQuotePdf(q: Quote) {
 
 export function quoteFileName(q: Quote): string {
   return `${q.quoteNumber}.pdf`;
+}
+
+/**
+ * Comparte el PDF con el menú nativo del dispositivo (WhatsApp, correo, AirDrop, etc.),
+ * para que el usuario elija cómo enviarlo. Si el navegador no soporta compartir
+ * archivos, descarga el PDF.
+ */
+export async function shareQuotePdf(q: Quote): Promise<void> {
+  const doc = await createQuotePdf(q);
+  const file = new File([doc.output('blob')], quoteFileName(q), { type: 'application/pdf' });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: `Cotización ${q.quoteNumber}` });
+      return;
+    } catch (err) {
+      if ((err as DOMException).name === 'AbortError') return; // el usuario cerró el menú
+    }
+  }
+  doc.save(quoteFileName(q));
 }
