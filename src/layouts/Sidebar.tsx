@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useAuthStore } from '../store/useAuthStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { hasPermission } from '../rbac';
 
 const NAV_ITEMS = [
@@ -29,6 +30,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { currentUser } = useAuthStore();
+  const { systemName } = useSettingsStore();
 
   const visibleItems = NAV_ITEMS.filter((item) =>
     currentUser ? hasPermission(currentUser.role, item.permission) : false
@@ -50,9 +52,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <TruckIcon className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
-          <div>
-            <p className="font-bold text-white text-sm leading-tight">FreightFlow</p>
-            <p className="text-xs text-slate-400 leading-tight">TMS</p>
+          <div className="overflow-hidden">
+            <p className="font-bold text-white text-sm leading-tight truncate">{systemName}</p>
           </div>
         )}
       </div>

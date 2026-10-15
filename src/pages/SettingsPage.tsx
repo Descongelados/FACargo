@@ -1,8 +1,29 @@
-import { Settings, Database, Globe, Bell, Shield, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Settings, Database, Globe, Bell, Pencil, Check, X } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import { APP_NAME } from '../constants';
+import { useAuthStore } from '../store/useAuthStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export default function SettingsPage() {
+  const { currentUser } = useAuthStore();
+  const { systemName, setSystemName } = useSettingsStore();
+  const isAdmin = currentUser?.role === 'admin';
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(systemName);
+
+  const handleSave = () => {
+    if (draft.trim()) {
+      setSystemName(draft.trim());
+    }
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(systemName);
+    setEditing(false);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -20,8 +41,43 @@ export default function SettingsPage() {
               <Globe className="w-4 h-4 text-blue-400" /> General
             </h2>
             <div className="space-y-3">
+              {/* Nombre del Sistema — editable para admin */}
+              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                <span className="text-sm text-slate-400">Nombre del Sistema</span>
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel(); }}
+                      autoFocus
+                      className="bg-slate-700 border border-slate-600 focus:border-blue-500 text-white text-sm rounded-lg px-3 py-1 outline-none w-52"
+                    />
+                    <button onClick={handleSave} title="Guardar" className="p-1 rounded-md text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={handleCancel} title="Cancelar" className="p-1 rounded-md text-rose-400 hover:bg-rose-500/10 transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white font-medium">{systemName}</span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setDraft(systemName); setEditing(true); }}
+                        title="Editar nombre del sistema"
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-slate-700 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {[
-                { label: 'Nombre del Sistema', value: APP_NAME },
                 { label: 'Versión', value: 'v1.0.0 — Stage 1 (Mock Data)' },
                 { label: 'Zona Horaria', value: 'America/Mexico_City (UTC-6)' },
                 { label: 'Idioma', value: 'Español (México)' },
