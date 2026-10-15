@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Settings, Database, Globe, Bell, Pencil, Check, X, Wifi, WifiOff, Loader } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Settings, Database, Globe, Bell, Pencil, Check, X, Wifi, WifiOff, Loader, ImagePlus, Trash2 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -9,11 +9,21 @@ type DbStatus = 'checking' | 'connected' | 'error' | 'unconfigured';
 
 export default function SettingsPage() {
   const { currentUser } = useAuthStore();
-  const { systemName, setSystemName } = useSettingsStore();
+  const { systemName, setSystemName, logoUrl, setLogoUrl } = useSettingsStore();
   const isAdmin = currentUser?.role === 'admin';
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(systemName);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLogoUrl(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const supabaseUrl = import.meta.env.VITE_TMS_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
   const supabaseKey = import.meta.env.VITE_TMS_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -91,6 +101,45 @@ export default function SettingsPage() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Logo del sistema — editable para admin */}
+              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                <span className="text-sm text-slate-400">Logo del Sistema</span>
+                <div className="flex items-center gap-3">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="h-8 max-w-[120px] object-contain rounded" />
+                  ) : (
+                    <span className="text-xs text-slate-500">Sin logo</span>
+                  )}
+                  {isAdmin && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden"
+                        onChange={handleLogoChange}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Subir logo"
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-slate-700 transition-colors"
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                      </button>
+                      {logoUrl && (
+                        <button
+                          onClick={() => setLogoUrl(null)}
+                          title="Quitar logo"
+                          className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-slate-700 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {[

@@ -30,7 +30,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { currentUser } = useAuthStore();
-  const { systemName } = useSettingsStore();
+  const { systemName, logoUrl } = useSettingsStore();
 
   const visibleItems = NAV_ITEMS.filter((item) =>
     currentUser ? hasPermission(currentUser.role, item.permission) : false
@@ -48,9 +48,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         'flex items-center gap-3 px-4 py-5 border-b border-slate-700/50',
         collapsed && 'justify-center px-0'
       )}>
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-          <TruckIcon className="w-5 h-5 text-white" />
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="h-8 w-8 object-contain rounded shrink-0" />
+        ) : (
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+            <TruckIcon className="w-5 h-5 text-white" />
+          </div>
+        )}
         {!collapsed && (
           <div className="overflow-hidden">
             <p className="font-bold text-white text-sm leading-tight truncate">{systemName}</p>
