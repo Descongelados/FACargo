@@ -1,8 +1,11 @@
-import { useState } from 'react';
-import { Settings, Database, Globe, Bell, Pencil, Check, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Database, Globe, Bell, Pencil, Check, X, Wifi, WifiOff, Loader } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { supabase } from '../lib/supabase';
+
+type DbStatus = 'checking' | 'connected' | 'error' | 'unconfigured';
 
 export default function SettingsPage() {
   const { currentUser } = useAuthStore();
@@ -11,6 +14,19 @@ export default function SettingsPage() {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(systemName);
+
+  const supabaseUrl = import.meta.env.VITE_TMS_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
+  const supabaseKey = import.meta.env.VITE_TMS_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const isConfigured = Boolean(supabaseUrl && supabaseKey);
+
+  const [dbStatus, setDbStatus] = useState<DbStatus>(isConfigured ? 'checking' : 'unconfigured');
+
+  useEffect(() => {
+    if (!isConfigured) { setDbStatus('unconfigured'); return; }
+    setDbStatus('checking');
+    void supabase.from('profiles').select('id', { count: 'exact', head: true })
+      .then(({ error }) => { setDbStatus(error ? 'error' : 'connected'); });
+  }, [isConfigured]);
 
   const handleSave = () => {
     if (draft.trim()) {
@@ -91,30 +107,48 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Supabase (próxima etapa) */}
+          {/* Supabase — estado de conexión */}
           <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-slate-300 mb-1 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
               <Database className="w-4 h-4 text-emerald-400" /> Base de Datos — Supabase
             </h2>
-            <p className="text-xs text-slate-500 mb-4">Disponible en la V2 del sistema</p>
             <div className="space-y-3">
               {[
-                { label: 'VITE_SUPABASE_URL', value: 'No configurado', status: false },
-                { label: 'VITE_SUPABASE_ANON_KEY', value: 'No configurado', status: false },
-              ].map(({ label, value, status }) => (
+                { label: 'VITE_SUPABASE_URL', configured: Boolean(supabaseUrl) },
+                { label: 'VITE_SUPABASE_ANON_KEY', configured: Boolean(supabaseKey) },
+              ].map(({ label, configured }) => (
                 <div key={label} className="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0">
                   <span className="text-sm font-mono text-slate-400">{label}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${status ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
-                    {value}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${configured ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                    {configured ? 'Configurado' : 'No configurado'}
                   </span>
                 </div>
               ))}
-            </div>
-            <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <p className="text-xs text-amber-400">
-                ⚠️ La aplicación actualmente usa <strong>datos en memoria (mock)</strong>. Los datos se reinician al recargar la página.
-                En la V2 se integrará Supabase para persistencia real.
-              </p>
+
+              {/* Estado de conexión */}
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-sm text-slate-400">Estado de conexión</span>
+                {dbStatus === 'checking' && (
+                  <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <Loader className="w-3.5 h-3.5 animate-spin" /> Verificando…
+                  </span>
+                )}
+                {dbStatus === 'connected' && (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                    <Wifi className="w-3.5 h-3.5" /> Conectado
+                  </span>
+                )}
+                {dbStatus === 'error' && (
+                  <span className="flex items-center gap-1.5 text-xs text-rose-400">
+                    <WifiOff className="w-3.5 h-3.5" /> Sin conexión
+                  </span>
+                )}
+                {dbStatus === 'unconfigured' && (
+                  <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <WifiOff className="w-3.5 h-3.5" /> No configurado
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
