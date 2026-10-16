@@ -23,7 +23,8 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 3. Haz clic en **Run** (▶).
 > **Base ya existente:** si creaste las tablas con una versión anterior de `schema.sql`, ejecuta además
 > [`migrations/001_quotes_formal_fields.sql`](./migrations/001_quotes_formal_fields.sql) para agregar los campos
-> nuevos de cotizaciones (contacto, dirección, fecha de servicio y referencia).
+> nuevos de cotizaciones (contacto, dirección, fecha de servicio y referencia). Después ejecuta también
+> [`migrations/002_trips_quote_id.sql`](./migrations/002_trips_quote_id.sql), que vincula cada viaje con su cotización de origen.
 
 
 

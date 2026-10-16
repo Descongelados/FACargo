@@ -141,6 +141,7 @@ export function tripFromDB(row: Record<string, unknown>): Trip {
     distanceKm:       row.distance_km as number,
     status:           row.status as Trip['status'],
     notes:            row.notes as string | undefined,
+    quoteId:          (row.quote_id as string | null) ?? undefined,
   };
 }
 
@@ -159,6 +160,7 @@ export function tripToDB(t: Omit<Trip, 'id' | 'tripNumber' | 'clientName' | 'dri
     distance_km:       t.distanceKm,
     status:            t.status,
     notes:             t.notes ?? null,
+    quote_id:          t.quoteId || null,
   };
 }
 

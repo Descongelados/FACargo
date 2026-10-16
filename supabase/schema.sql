@@ -191,6 +191,7 @@ create table public.trips (
   distance_km         numeric(10,2) not null default 0,
   status              trip_status not null default 'pending',
   notes               text,
+  quote_id            uuid,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
@@ -239,6 +240,10 @@ create trigger trg_quotes_updated_at
 
 create index idx_quotes_status    on public.quotes(status);
 create index idx_quotes_client_id on public.quotes(client_id);
+
+alter table public.trips
+  add constraint trips_quote_id_fkey foreign key (quote_id) references public.quotes(id) on delete set null;
+create index idx_trips_quote_id on public.trips(quote_id);
 
 -- ============================================================
 -- 7. EXPENSES

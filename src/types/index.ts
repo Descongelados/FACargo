@@ -77,6 +77,7 @@ export interface Trip {
   status: TripStatus;
   distanceKm: number;
   notes?: string;
+  quoteId?: string;
 }
 
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected';

@@ -439,6 +439,7 @@ export default function TripsPage() {
       distanceKm: q.distanceKm, departureDate: '', deliveryDate: '',
       rate: q.proposedRate, status: 'pending',
       notes: `Generado desde cotización ${q.quoteNumber}`,
+      quoteId: q.id,
     });
     updateQuoteStatus(q.id, 'approved');
     setTab('trips');
@@ -530,7 +531,8 @@ export default function TripsPage() {
               const isExpanded = expandedTripId === trip.id;
               const tripExpensesTotal = expenses.filter(e => e.tripId === trip.id).reduce((sum, e) => sum + e.amount, 0);
               const sourceQuoteNumber = trip.notes?.match(/Generado desde cotización (\S+)/)?.[1];
-              const sourceQuote = sourceQuoteNumber ? quotes.find(q => q.quoteNumber === sourceQuoteNumber) : undefined;
+              const sourceQuote = (trip.quoteId ? quotes.find(q => q.id === trip.quoteId) : undefined)
+                ?? (sourceQuoteNumber ? quotes.find(q => q.quoteNumber === sourceQuoteNumber) : undefined);
               return (
                 <div key={trip.id} className={`bg-slate-800 border rounded-xl p-4 transition-all ${
                   isExpanded ? 'border-blue-500/40' : 'border-slate-700/50 hover:border-slate-600'
