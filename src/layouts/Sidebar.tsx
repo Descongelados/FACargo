@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, Truck, Map, Receipt,
-  Wrench, BarChart3, Shield, Settings, TruckIcon, ChevronLeft, ChevronRight,
+  Wrench, BarChart3, Settings, TruckIcon, ChevronLeft, ChevronRight,
   BookOpen,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { to: '/maintenance',icon: Wrench,          label: 'Mantenimientos',  permission: 'manageMaintenance' as const },
   { to: '/accounting', icon: BookOpen,        label: 'Contabilidad',    permission: 'viewAccounting' as const },
   { to: '/reports',    icon: BarChart3,       label: 'Reportes',        permission: 'viewReports'    as const },
-  { to: '/users',      icon: Shield,          label: 'Usuarios',        permission: 'manageUsers'    as const },
   { to: '/settings',   icon: Settings,        label: 'Configuración',   permission: 'manageSettings' as const },
 ];
 

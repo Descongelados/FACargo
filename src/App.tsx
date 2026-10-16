@@ -13,7 +13,6 @@ const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
 const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
 const AccountingPage = lazy(() => import('./pages/AccountingPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const UsersPage = lazy(() => import('./pages/UsersPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 export default function App() {
@@ -55,7 +54,6 @@ export default function App() {
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/accounting"  element={<AccountingPage />} />
         <Route path="/reports"     element={<ReportsPage />} />
-        <Route path="/users"       element={<UsersPage />} />
         <Route path="/settings"    element={<SettingsPage />} />
         <Route path="*"            element={<Navigate to="/dashboard" replace />} />
       </Route>
