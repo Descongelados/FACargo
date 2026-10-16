@@ -348,17 +348,32 @@ export default function TripsPage() {
   };
   const handleTripVehicleChange = (vehicleId: string) => {
     const v = vehicles.find(v => v.id === vehicleId);
-    setTripForm(p => ({ ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '' }));
+    // Propone el operador que tiene asignada la unidad (se puede cambiar después)
+    const d = drivers.find(d => d.assignedVehicleId === vehicleId);
+    setTripForm(p => ({
+      ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '',
+      ...(d ? { driverId: d.id, driverName: d.fullName } : {}),
+    }));
+  };
+  // Operador del viaje: el asignado al viaje o, si no tiene, el que tiene asignada la unidad
+  const getTripDriver = (trip: Trip) => {
+    if (trip.driverId) return drivers.find(d => d.id === trip.driverId);
+    return trip.vehicleId ? drivers.find(d => d.assignedVehicleId === trip.vehicleId) : undefined;
   };
   const advanceStatus = (trip: Trip) => {
-    // Un viaje no puede avanzar sin operador: si falta, se abre la edición para asignarlo
-    if (!trip.driverId) {
-      requireFields({ 'Operador': trip.driverId });
+    // Un viaje no puede avanzar sin operador: si la unidad tiene uno asignado se guarda en el viaje;
+    // si no, se abre la edición para asignarlo
+    const driver = getTripDriver(trip);
+    if (!driver) {
+      requireFields({ 'Operador': '' });
       openEditTrip(trip);
       return;
     }
     const idx = TRIP_FLOW.indexOf(trip.status);
-    if (idx < TRIP_FLOW.length - 1) updateTripStatus(trip.id, TRIP_FLOW[idx + 1]);
+    if (idx >= TRIP_FLOW.length - 1) return;
+    const next = TRIP_FLOW[idx + 1];
+    if (trip.driverId) updateTripStatus(trip.id, next);
+    else updateTrip(trip.id, { driverId: driver.id, status: next });
   };
   const toggleExpand = (id: string) =>
     setExpandedTripId(prev => (prev === id ? null : id));
@@ -442,9 +457,10 @@ export default function TripsPage() {
   };
 
   const convertToTrip = (q: Quote) => {
+    const unitDriver = q.vehicleId ? drivers.find(d => d.assignedVehicleId === q.vehicleId) : undefined;
     addTrip({
       clientId: q.clientId,
-      driverId: '',
+      driverId: unitDriver?.id ?? '',
       vehicleId: q.vehicleId ?? '',
       origin: q.origin, destination: q.destination,
       cargoDescription: q.cargoDescription, cargoWeightKg: q.cargoWeightKg,
@@ -576,7 +592,7 @@ export default function TripsPage() {
                       </div>
                       <div className="flex flex-wrap gap-4 text-xs text-slate-400">
                         <span>Cliente: <span className="text-slate-300">{trip.clientName}</span></span>
-                        <span>Operador: <span className="text-slate-300">{trip.driverName || '—'}</span></span>
+                        <span>Operador: <span className="text-slate-300">{getTripDriver(trip)?.fullName || trip.driverName || '—'}</span></span>
                         <span>Unidad: <span className="text-slate-300">{trip.vehicleUnit || '—'}</span></span>
                         <span>Carga: <span className="text-slate-300">{trip.cargoDescription}</span></span>
                         {trip.distanceKm > 0 && <span>Distancia: <span className="text-slate-300">{trip.distanceKm} km</span></span>}
