@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Trip, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { tripFromDB, tripToDB , toDBPatch } from '../lib/mappers';
+import { useQuotesStore } from './useQuotesStore';
 
 interface TripsState {
   trips: Trip[];
@@ -120,9 +121,24 @@ export const useTripsStore = create<TripsState>((set, get) => ({
   },
 
   deleteTrip: async (id) => {
+    const target = get().trips.find(t => t.id === id);
+    let associatedQuoteId = target?.quoteId;
+
+    if (!associatedQuoteId && target?.notes) {
+      const num = target.notes.match(/Generado desde cotización (\S+)/)?.[1];
+      if (num) {
+        const { data: qRow } = await supabase.from('quotes').select('id').eq('quote_number', num).maybeSingle();
+        if (qRow?.id) associatedQuoteId = qRow.id;
+      }
+    }
+
     const { error } = await supabase.from('trips').delete().eq('id', id);
     if (!error) {
       set((state) => ({ trips: state.trips.filter((t) => t.id !== id) }));
+      if (associatedQuoteId) {
+        await supabase.from('quotes').delete().eq('id', associatedQuoteId);
+        useQuotesStore.getState().deleteQuote(associatedQuoteId);
+      }
     }
   },
 }));

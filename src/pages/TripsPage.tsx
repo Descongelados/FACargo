@@ -462,6 +462,18 @@ export default function TripsPage() {
       updateTrip(trip.id, updates);
     }
   };
+
+  const handleDeleteTrip = async (trip: Trip) => {
+    const quoteNumber = trip.notes?.match(/Generado desde cotización (\S+)/)?.[1];
+    const associatedQuote = (trip.quoteId ? quotes.find(q => q.id === trip.quoteId) : undefined)
+      ?? (quoteNumber ? quotes.find(q => q.quoteNumber === quoteNumber) : undefined);
+
+    await deleteTrip(trip.id);
+    if (associatedQuote) {
+      await deleteQuote(associatedQuote.id);
+    }
+  };
+
   const toggleExpand = (id: string) =>
     setExpandedTripId(prev => (prev === id ? null : id));
 
@@ -724,7 +736,7 @@ export default function TripsPage() {
                             <button onClick={() => openEditTrip(trip)} title="Editar viaje" className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => deleteTrip(trip.id)} title="Eliminar viaje" className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors">
+                            <button onClick={() => handleDeleteTrip(trip)} title="Eliminar viaje" className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </>
