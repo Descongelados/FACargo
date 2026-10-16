@@ -380,7 +380,18 @@ export default function TripsPage() {
 
   // ─── Cotizaciones ──────────────────────────────────────────────────────────
 
-  const filteredQuotes = quotes.filter((q) => {
+  // Cotizaciones que ya se enviaron a viaje salen de la lista (siguen disponibles desde el viaje)
+  const convertedQuoteIds = new Set(
+    trips.flatMap((t) => {
+      if (t.quoteId) return [t.quoteId];
+      const num = t.notes?.match(/Generado desde cotización (\S+)/)?.[1];
+      const q = num ? quotes.find((x) => x.quoteNumber === num) : undefined;
+      return q ? [q.id] : [];
+    })
+  );
+  const pendingQuotes = quotes.filter((q) => !convertedQuoteIds.has(q.id));
+
+  const filteredQuotes = pendingQuotes.filter((q) => {
     const matchSearch =
       q.quoteNumber.toLowerCase().includes(search.toLowerCase()) ||
       q.clientName.toLowerCase().includes(search.toLowerCase()) ||
@@ -492,7 +503,7 @@ export default function TripsPage() {
             <p className="text-sm text-slate-400">
               {tab === 'trips' && `${activeTripsCount} viajes activos`}
               {tab === 'finished' && `${finishedTripsCount} viajes terminados`}
-              {tab === 'quotes' && `${quotes.length} cotizaciones registradas`}
+              {tab === 'quotes' && `${pendingQuotes.length} cotizaciones registradas`}
             </p>
           </div>
         </div>
@@ -520,7 +531,7 @@ export default function TripsPage() {
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               tab === t ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'
             }`}>
-              {t === 'trips' ? activeTripsCount : t === 'finished' ? finishedTripsCount : quotes.length}
+              {t === 'trips' ? activeTripsCount : t === 'finished' ? finishedTripsCount : pendingQuotes.length}
             </span>
           </button>
         ))}
