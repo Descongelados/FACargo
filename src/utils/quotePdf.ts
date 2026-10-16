@@ -139,8 +139,9 @@ export async function createQuotePdf(q: Quote) {
   const xCosts = ML;
   const xConds = ML + halfW + 4;
 
-  sectionHeader('DESGLOSE DE COSTOS', xCosts, y, halfW - 2);
-  const costsTableHeaderY = y + 9;
+  const sectionY = y;
+  sectionHeader('DESGLOSE DE COSTOS', xCosts, sectionY, halfW - 2);
+  const costsTableHeaderY = sectionY + 9;
 
   doc.setFillColor(...PRIMARY);
   doc.rect(xCosts, costsTableHeaderY, halfW - 2, 6, 'F');
@@ -185,8 +186,8 @@ export async function createQuotePdf(q: Quote) {
   const costsEndY = rowY + 14;
 
   // Condiciones
-  sectionHeader('CONDICIONES COMERCIALES', xConds, y - 9, halfW - 2);
-  let condsY = y + 1;
+  sectionHeader('CONDICIONES COMERCIALES', xConds, sectionY, halfW - 2);
+  let condsY = sectionY + 13;
   cfg.conditions.forEach((cond) => {
     doc.setFillColor(...ACCENT);
     doc.circle(xConds + 2.5, condsY - 1, 1, 'F');
@@ -219,9 +220,9 @@ export async function createQuotePdf(q: Quote) {
   doc.rect(W * 0.72, footerY, W * 0.28, 8, 'F');
 
   doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(...WHITE);
-  doc.text(`📞  ${cfg.phone}`,   ML,       footerY + 5.5);
-  doc.text(`✉  ${cfg.email}`,   ML + 45,  footerY + 5.5);
-  doc.text(`🌐  ${cfg.website}`, ML + 100, footerY + 5.5);
+  doc.text(`Tel: ${cfg.phone}`,   ML,       footerY + 5.5);
+  doc.text(`Correo: ${cfg.email}`, ML + 45,  footerY + 5.5);
+  doc.text(`Web: ${cfg.website}`,  ML + 100, footerY + 5.5);
 
   doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...WHITE);
   doc.text(cfg.footerTagline, W - MR, footerY + 5.5, { align: 'right' });
