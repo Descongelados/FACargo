@@ -529,6 +529,8 @@ export default function TripsPage() {
               const canAdvance = trip.status !== 'delivered' && trip.status !== 'cancelled';
               const isExpanded = expandedTripId === trip.id;
               const tripExpensesTotal = expenses.filter(e => e.tripId === trip.id).reduce((sum, e) => sum + e.amount, 0);
+              const sourceQuoteNumber = trip.notes?.match(/Generado desde cotización (\S+)/)?.[1];
+              const sourceQuote = sourceQuoteNumber ? quotes.find(q => q.quoteNumber === sourceQuoteNumber) : undefined;
               return (
                 <div key={trip.id} className={`bg-slate-800 border rounded-xl p-4 transition-all ${
                   isExpanded ? 'border-blue-500/40' : 'border-slate-700/50 hover:border-slate-600'
@@ -569,6 +571,11 @@ export default function TripsPage() {
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(trip.rate)}</p>
                       <div className="flex items-center gap-1">
+                        {sourceQuote && (
+                          <button onClick={() => setPreviewQuote(sourceQuote)} title={`Ver cotización ${sourceQuote.quoteNumber}`} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-300 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
+                            <Eye className="w-3.5 h-3.5" /> Cotización
+                          </button>
+                        )}
                         {canAdvance && (
                           <button onClick={() => advanceStatus(trip)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors">
                             <ChevronRight className="w-3.5 h-3.5" /> Avanzar
