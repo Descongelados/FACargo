@@ -18,7 +18,8 @@ import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { QuotePreviewModal } from '../components/quotes/QuoteModals';
-import { shareQuotePdf } from '../utils/quotePdf';
+import { shareQuotePdf, calcQuoteTotals } from '../utils/quotePdf';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { FormField, Input, Select } from '../components/ui/FormElements';
 import { TRIP_STATUS_LABELS, QUOTE_STATUS_LABELS, EXPENSE_CATEGORIES } from '../constants';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -61,10 +62,11 @@ const EMPTY_TRIP: TripFormData = {
 
 const EMPTY_QUOTE: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'> = {
   clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '',
+  guestClientContact: '', guestClientAddress: '',
   vehicleId: '', vehicleUnit: '',
   origin: '', destination: '', cargoDescription: '', cargoWeightKg: 0,
   distanceKm: MIN_KM, trailerType: 'Dry Van (Caja Seca)', proposedRate: 0,
-  validUntil: '', status: 'draft', notes: '',
+  validUntil: '', serviceDate: '', reference: '', status: 'draft', notes: '',
 };
 
 type Tab = 'trips' | 'quotes';
@@ -233,6 +235,7 @@ export default function TripsPage() {
   const { policies } = useInsuranceStore();
   const { expenses } = useExpensesStore();
   const { maintenances } = useMaintenanceStore();
+  const quoteConfig = useSettingsStore((s) => s.quoteConfig);
 
   const [tab, setTab] = useState<Tab>('trips');
   const [search, setSearch] = useState('');
@@ -423,7 +426,7 @@ export default function TripsPage() {
 
   const toggleGuestClient = (isGuest: boolean) => {
     setGuestClient(isGuest);
-    setQuoteForm(p => ({ ...p, clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '' }));
+    setQuoteForm(p => ({ ...p, clientId: '', clientName: '', guestClientPhone: '', guestClientEmail: '', guestClientContact: '', guestClientAddress: '' }));
   };
 
   const convertToTrip = (q: Quote) => {
@@ -628,7 +631,10 @@ export default function TripsPage() {
                       {quote.notes && <p className="text-xs text-slate-500 mt-1.5 italic">{quote.notes}</p>}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <p className="text-lg font-bold text-emerald-400">{formatCurrency(quote.proposedRate)}</p>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-emerald-400">{formatCurrency(calcQuoteTotals(quote.proposedRate, quoteConfig).total)}</p>
+                        <p className="text-xs text-slate-500">Flete base {formatCurrency(quote.proposedRate)} + IVA y cargos</p>
+                      </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => setPreviewQuote(quote)} className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-300 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
                           <Eye className="w-3.5 h-3.5" /> Ver
@@ -772,6 +778,12 @@ export default function TripsPage() {
               </FormField>
               <FormField label="Email de Contacto">
                 <Input type="email" value={quoteForm.guestClientEmail ?? ''} onChange={(e) => fq('guestClientEmail', e.target.value)} placeholder="contacto@empresa.com" />
+              </FormField>
+              <FormField label="Nombre del Contacto">
+                <Input value={quoteForm.guestClientContact ?? ''} onChange={(e) => fq('guestClientContact', e.target.value)} placeholder="Juan Pérez" />
+              </FormField>
+              <FormField label="Dirección">
+                <Input value={quoteForm.guestClientAddress ?? ''} onChange={(e) => fq('guestClientAddress', e.target.value)} placeholder="Calle, número, ciudad, estado" />
               </FormField>
             </>
           )}
@@ -965,6 +977,12 @@ export default function TripsPage() {
           </FormField>
           <FormField label="Válida Hasta" required error={quoteFieldErr(quoteForm.validUntil)}>
             <Input type="date" value={quoteForm.validUntil} onChange={(e) => fq('validUntil', e.target.value)} className={quoteFieldCls(quoteForm.validUntil)} />
+          </FormField>
+          <FormField label="Fecha de Servicio">
+            <Input type="date" value={quoteForm.serviceDate ?? ''} onChange={(e) => fq('serviceDate', e.target.value)} />
+          </FormField>
+          <FormField label="Referencia del Servicio">
+            <Input value={quoteForm.reference ?? ''} onChange={(e) => fq('reference', e.target.value)} placeholder="Carga y descarga en planta del cliente" />
           </FormField>
           <FormField label="Notas" className="col-span-2">
             <Input value={quoteForm.notes ?? ''} onChange={(e) => fq('notes', e.target.value)} placeholder="Condiciones especiales, restricciones..." />

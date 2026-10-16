@@ -88,6 +88,8 @@ export interface Quote {
   clientName: string;
   guestClientPhone?: string;
   guestClientEmail?: string;
+  guestClientContact?: string;
+  guestClientAddress?: string;
   vehicleId?: string;
   vehicleUnit?: string;
   origin: string;
@@ -98,6 +100,8 @@ export interface Quote {
   trailerType: TrailerType;
   proposedRate: number;
   validUntil: string;
+  serviceDate?: string;
+  reference?: string;
   status: QuoteStatus;
   notes?: string;
   createdAt: string;

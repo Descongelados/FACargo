@@ -21,6 +21,11 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 1. En el dashboard de Supabase ve a **SQL Editor → New query**.
 2. Pega el contenido completo de [`supabase/schema.sql`](./schema.sql).
 3. Haz clic en **Run** (▶).
+> **Base ya existente:** si creaste las tablas con una versión anterior de `schema.sql`, ejecuta además
+> [`migrations/001_quotes_formal_fields.sql`](./migrations/001_quotes_formal_fields.sql) para agregar los campos
+> nuevos de cotizaciones (contacto, dirección, fecha de servicio y referencia).
+
+
 
 ### 4. Cargar datos de prueba (opcional)
 1. En el mismo SQL Editor abre una nueva query.

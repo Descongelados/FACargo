@@ -422,8 +422,39 @@ export default function SettingsPage() {
                   <Field label="Teléfono"   value={qc.phone}   onChange={(v) => setQc((p) => ({ ...p, phone: v }))}   placeholder="+52 33 1234 5678" />
                   <Field label="Email"      value={qc.email}   onChange={(v) => setQc((p) => ({ ...p, email: v }))}   placeholder="contacto@empresa.com" />
                   <Field label="Sitio web"  value={qc.website} onChange={(v) => setQc((p) => ({ ...p, website: v }))} placeholder="www.empresa.com" />
+                  <Field label="Dirección de la empresa" value={qc.address} onChange={(v) => setQc((p) => ({ ...p, address: v }))} placeholder="Guadalajara, Jalisco, México" />
+                  <Field label="WhatsApp (para el QR; si se deja vacío se usa el teléfono)" value={qc.whatsapp} onChange={(v) => setQc((p) => ({ ...p, whatsapp: v }))} placeholder="+52 33 1234 5678" />
                   <Field label="Tagline derecho" value={qc.footerTagline} onChange={(v) => setQc((p) => ({ ...p, footerTagline: v }))} placeholder="TU ALIADO EN EL CAMINO" />
                   <Field label="Sub-footer central" value={qc.footerSubline} onChange={(v) => setQc((p) => ({ ...p, footerSubline: v }))} placeholder="FLETES | CARGA | LOGÍSTICA" />
+                </div>
+              </div>
+
+              {/* Datos fiscales y bancarios */}
+              <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-sky-400" /> Datos Fiscales y Bancarios
+                </h3>
+                <div className="space-y-3">
+                  <Field label="Razón social / Titular de la cuenta" value={qc.legalName} onChange={(v) => setQc((p) => ({ ...p, legalName: v }))} placeholder="Mi Empresa S.A. de C.V." />
+                  <Field label="RFC" value={qc.rfc} onChange={(v) => setQc((p) => ({ ...p, rfc: v.toUpperCase() }))} placeholder="XAXX010101000" />
+                  <Field label="Banco" value={qc.bankName} onChange={(v) => setQc((p) => ({ ...p, bankName: v }))} placeholder="BBVA" />
+                  <Field label="Número de cuenta" value={qc.bankAccount} onChange={(v) => setQc((p) => ({ ...p, bankAccount: v }))} placeholder="0123456789" />
+                  <Field label="CLABE interbancaria" value={qc.bankClabe} onChange={(v) => setQc((p) => ({ ...p, bankClabe: v.replace(/\D/g, '') }))} placeholder="18 dígitos" />
+                  {qc.bankClabe && qc.bankClabe.length !== 18 && (
+                    <p className="text-xs text-amber-400">La CLABE debe tener 18 dígitos ({qc.bankClabe.length}/18).</p>
+                  )}
+                  <p className="text-xs text-slate-500">Si se dejan vacíos, el PDF omite el recuadro de datos bancarios.</p>
+                </div>
+              </div>
+
+              {/* Firma */}
+              <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-pink-400" /> Firma de la Cotización
+                </h3>
+                <div className="space-y-3">
+                  <Field label="Nombre del responsable" value={qc.signerName} onChange={(v) => setQc((p) => ({ ...p, signerName: v }))} placeholder="Carlos Díaz" />
+                  <Field label="Cargo" value={qc.signerTitle} onChange={(v) => setQc((p) => ({ ...p, signerTitle: v }))} placeholder="Gerente Comercial" />
                 </div>
               </div>
 
@@ -450,6 +481,7 @@ export default function SettingsPage() {
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 mt-2">Los porcentajes de Casetas y Maniobras se calculan sobre el flete base.</p>
+                <p className="text-xs text-slate-500 mt-1">En las condiciones puedes usar <code className="text-slate-400">{'{transito}'}</code> (tiempo estimado según la distancia) y <code className="text-slate-400">{'{vigencia}'}</code> (días de vigencia); se reemplazan con los datos de cada cotización.</p>
               </div>
             </div>
 

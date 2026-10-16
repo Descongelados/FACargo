@@ -27,6 +27,19 @@ export interface QuoteConfig {
   features: QuoteFeature[];
   // Condiciones comerciales (lista de strings)
   conditions: string[];
+  // Datos fiscales del emisor (encabezado y datos bancarios del PDF)
+  legalName: string;      // razón social / titular de la cuenta
+  rfc: string;
+  address: string;        // dirección de la empresa (pie del PDF)
+  // WhatsApp para el QR del PDF (si está vacío se usa el teléfono)
+  whatsapp: string;
+  // Datos bancarios para el pago por transferencia
+  bankName: string;
+  bankAccount: string;
+  bankClabe: string;
+  // Firma
+  signerName: string;
+  signerTitle: string;
   // IVA %
   ivaPercent: number;
   // % casetas sobre flete base
@@ -45,6 +58,15 @@ export const DEFAULT_QUOTE_CONFIG: QuoteConfig = {
   website: 'www.facargo.com',
   footerTagline: 'TU ALIADO EN EL CAMINO',
   footerSubline: 'FLETES LOCALES Y FORÁNEOS  |  CARGA SEGURA  |  SOLUCIONES LOGÍSTICAS',
+  legalName: '',
+  rfc: '',
+  address: '',
+  whatsapp: '',
+  bankName: '',
+  bankAccount: '',
+  bankClabe: '',
+  signerName: '',
+  signerTitle: '',
   features: [
     { title: 'Seguro de mercancía',   sub: 'Tu carga protegida' },
     { title: 'Rastreo GPS',           sub: 'Monitoreo en tiempo real' },
@@ -55,11 +77,11 @@ export const DEFAULT_QUOTE_CONFIG: QuoteConfig = {
     'El precio incluye operador y combustible.',
     'La cotización considera carga y descarga en planta.',
     'No incluye almacenaje ni servicios extraordinarios.',
-    'Tiempo estimado de tránsito según la distancia del servicio.',
+    'Tiempo estimado de tránsito: {transito}.',
     'Forma de pago: Transferencia bancaria.',
     'Crédito sujeto a autorización.',
-    'Vigencia indicada en la cotización.',
-    'Cualquier cambio en la ruta o peso puede generar variación en el costo.',
+    'Esta cotización tiene una vigencia de {vigencia}.',
+    'Cualquier cambio en la ruta, peso o condiciones de carga puede generar una variación en el costo.',
   ],
   ivaPercent: 16,
   tollPercent: 8,
@@ -89,9 +111,32 @@ export const useSettingsStore = create<SettingsState>()(
         set((s) => ({ quoteConfig: { ...s.quoteConfig, ...cfg } })),
       resetQuoteConfig: () => set({ quoteConfig: DEFAULT_QUOTE_CONFIG }),
     }),
-    { name: 'facargo-settings' }
+    {
+      name: 'facargo-settings',
+      version: 1,
+      // v0 → v1: textos de condiciones que ahora usan datos reales de cada cotización
+      migrate: (persisted) => {
+        const s = persisted as { quoteConfig?: QuoteConfig };
+        if (s.quoteConfig?.conditions) {
+          s.quoteConfig.conditions = s.quoteConfig.conditions.map((c) => LEGACY_CONDITIONS[c] ?? c);
+        }
+        return s as SettingsState;
+      },
+      // Completa con valores por defecto los campos nuevos que no existan en lo ya guardado
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return { ...current, ...p, quoteConfig: { ...current.quoteConfig, ...p.quoteConfig } };
+      },
+    }
   )
 );
+
+const LEGACY_CONDITIONS: Record<string, string> = {
+  'Tiempo estimado de tránsito según la distancia del servicio.': 'Tiempo estimado de tránsito: {transito}.',
+  'Vigencia indicada en la cotización.': 'Esta cotización tiene una vigencia de {vigencia}.',
+  'Cualquier cambio en la ruta o peso puede generar variación en el costo.':
+    'Cualquier cambio en la ruta, peso o condiciones de carga puede generar una variación en el costo.',
+};
 
 // Helper: convierte hex "#RRGGBB" → [R, G, B]
 export function hexToRgb(hex: string): [number, number, number] {
