@@ -31,7 +31,7 @@ export const DRIVER_STATUS_LABELS: Record<string, { label: string; color: string
 };
 
 export const EXPENSE_CATEGORIES = [
-  { value: 'fuel', label: 'Combustible (Diesel)' },
+  { value: 'fuel', label: 'Combustible' },
   { value: 'toll', label: 'Casetas / Peajes' },
   { value: 'viatics', label: 'Viáticos de Operador' },
   { value: 'maintenance', label: 'Mantenimiento en Ruta' },
