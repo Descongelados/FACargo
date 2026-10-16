@@ -9,6 +9,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import type { QuoteConfig } from '../store/useSettingsStore';
+import { useNotifyStore } from '../store/useNotifyStore';
 import { supabase } from '../lib/supabase';
 import StatusBadge from '../components/ui/StatusBadge';
 import SearchBar from '../components/ui/SearchBar';
@@ -116,7 +117,12 @@ export default function SettingsPage() {
   // Sincronizar si el store cambia externamente
   useEffect(() => { setQc({ ...quoteConfig }); }, [quoteConfig]);
 
-  const saveQuoteConfig = () => setQuoteConfig(qc);
+  const { notifySuccess } = useNotifyStore();
+
+  const saveQuoteConfig = () => {
+    setQuoteConfig(qc);
+    notifySuccess('Configuración de cotización guardada correctamente.');
+  };
 
   const updateFeature = (i: number, key: 'title' | 'sub', val: string) =>
     setQc((prev) => {
