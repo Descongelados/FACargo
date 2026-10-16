@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Map, Pencil, Trash2, ArrowRight, ChevronRight, ChevronDown, ChevronUp,
   FileText, Plus, Share2, XCircle, RotateCcw,
-  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Fuel, Eye,
+  UserX, UserCheck, Calculator, Truck, DollarSign, Receipt, Fuel, Eye, CheckCircle,
 } from 'lucide-react';
 import { useTripsStore } from '../store/useTripsStore';
 import { useQuotesStore } from '../store/useQuotesStore';
@@ -69,7 +69,10 @@ const EMPTY_QUOTE: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt'> = {
   validUntil: '', serviceDate: '', reference: '', status: 'draft', notes: '',
 };
 
-type Tab = 'trips' | 'quotes';
+type Tab = 'trips' | 'finished' | 'quotes';
+
+const FINISHED_TRIP_STATUSES = ['delivered', 'cancelled'];
+const isFinishedTrip = (status: string) => FINISHED_TRIP_STATUSES.includes(status);
 
 // ─── Helper: calcular costo/km de una unidad ─────────────────────────────────
 
@@ -300,7 +303,11 @@ export default function TripsPage() {
 
   // ─── Viajes ────────────────────────────────────────────────────────────────
 
+  const activeTripsCount = trips.filter((t) => !isFinishedTrip(t.status)).length;
+  const finishedTripsCount = trips.length - activeTripsCount;
+
   const filteredTrips = trips.filter((t) => {
+    if (isFinishedTrip(t.status) !== (tab === 'finished')) return false;
     const matchSearch =
       t.tripNumber.toLowerCase().includes(search.toLowerCase()) ||
       t.clientName.toLowerCase().includes(search.toLowerCase()) ||
@@ -462,22 +469,24 @@ export default function TripsPage() {
           <div>
             <h1 className="text-xl font-bold text-white">Viajes & Despacho</h1>
             <p className="text-sm text-slate-400">
-              {tab === 'trips' ? `${trips.length} viajes registrados` : `${quotes.length} cotizaciones registradas`}
+              {tab === 'trips' && `${activeTripsCount} viajes activos`}
+              {tab === 'finished' && `${finishedTripsCount} viajes terminados`}
+              {tab === 'quotes' && `${quotes.length} cotizaciones registradas`}
             </p>
           </div>
         </div>
         <button
-          onClick={tab === 'trips' ? openAddTrip : openAddQuote}
+          onClick={tab === 'quotes' ? openAddQuote : openAddTrip}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
-          {tab === 'trips' ? 'Nuevo Viaje' : 'Nueva Cotización'}
+          {tab === 'quotes' ? 'Nueva Cotización' : 'Nuevo Viaje'}
         </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-800 border border-slate-700/50 rounded-xl w-fit">
-        {(['trips', 'quotes'] as Tab[]).map((t) => (
+        {(['trips', 'finished', 'quotes'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => switchTab(t)}
@@ -485,12 +494,12 @@ export default function TripsPage() {
               tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            {t === 'trips' ? <Map className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-            {t === 'trips' ? 'Viajes' : 'Cotizaciones'}
+            {t === 'trips' ? <Map className="w-4 h-4" /> : t === 'finished' ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+            {t === 'trips' ? 'Viajes activos' : t === 'finished' ? 'Viajes terminados' : 'Cotizaciones'}
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               tab === t ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'
             }`}>
-              {t === 'trips' ? trips.length : quotes.length}
+              {t === 'trips' ? activeTripsCount : t === 'finished' ? finishedTripsCount : quotes.length}
             </span>
           </button>
         ))}
@@ -502,7 +511,7 @@ export default function TripsPage() {
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder={tab === 'trips'
+            placeholder={tab !== 'quotes'
               ? 'Buscar por folio, cliente, origen o destino...'
               : 'Buscar por número, cliente, origen o destino...'}
           />
@@ -513,16 +522,20 @@ export default function TripsPage() {
           className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white focus:outline-none"
         >
           <option value="all">Todos los estados</option>
-          {Object.entries(tab === 'trips' ? TRIP_STATUS_LABELS : QUOTE_STATUS_LABELS).map(([k, v]) => (
+          {Object.entries(tab === 'quotes' ? QUOTE_STATUS_LABELS : TRIP_STATUS_LABELS)
+            .filter(([k]) => tab === 'quotes' || isFinishedTrip(k) === (tab === 'finished'))
+            .map(([k, v]) => (
             <option key={k} value={k}>{v.label}</option>
           ))}
         </select>
       </div>
 
       {/* ══ VIAJES ══════════════════════════════════════════════════════════════ */}
-      {tab === 'trips' && (
+      {tab !== 'quotes' && (
         filteredTrips.length === 0 ? (
-          <EmptyState icon={Map} title="Sin viajes" description="Crea el primer viaje para comenzar el despacho." action={{ label: 'Nuevo Viaje', onClick: openAddTrip }} />
+          tab === 'finished'
+            ? <EmptyState icon={CheckCircle} title="Sin viajes terminados" description="Los viajes entregados o cancelados aparecerán aquí." />
+            : <EmptyState icon={Map} title="Sin viajes activos" description="Crea un viaje para comenzar el despacho." action={{ label: 'Nuevo Viaje', onClick: openAddTrip }} />
         ) : (
           <div className="space-y-2">
             {filteredTrips.map((trip) => {
