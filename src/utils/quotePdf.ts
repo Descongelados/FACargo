@@ -140,14 +140,14 @@ export async function createQuotePdf(q: Quote) {
   const xConds = ML + halfW + 4;
 
   sectionHeader('DESGLOSE DE COSTOS', xCosts, y, halfW - 2);
-  y += 9;
+  const costsTableHeaderY = y + 9;
 
   doc.setFillColor(...PRIMARY);
-  doc.rect(xCosts, y, halfW - 2, 6, 'F');
+  doc.rect(xCosts, costsTableHeaderY, halfW - 2, 6, 'F');
   doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...WHITE);
-  doc.text('CONCEPTO',      xCosts + 3,         y + 4.2);
-  doc.text('IMPORTE (MXN)', xCosts + halfW - 5, y + 4.2, { align: 'right' });
-  y += 7;
+  doc.text('CONCEPTO',      xCosts + 3,         costsTableHeaderY + 4.2);
+  doc.text('IMPORTE (MXN)', xCosts + halfW - 5, costsTableHeaderY + 4.2, { align: 'right' });
+  y = costsTableHeaderY + 7;
 
   const baseRate  = q.proposedRate;
   const toll      = Math.round(baseRate * cfg.tollPercent / 100);
@@ -164,11 +164,12 @@ export async function createQuotePdf(q: Quote) {
     [`IVA (${cfg.ivaPercent}%)`,      iva,       false],
   ];
 
-  let rowY = y;
+  let rowY = y + 4.5; // texto centrado en el primer rect (rect empieza en y, altura 6 → centro en y+3, baseline ~y+4.5)
   costRows.forEach(([label, amount, bold], idx) => {
+    const rectTop = rowY - 4;
     if (idx % 2 === 0) {
       doc.setFillColor(...LIGHT_BG);
-      doc.rect(xCosts, rowY - 4, halfW - 2, 6, 'F');
+      doc.rect(xCosts, rectTop, halfW - 2, 6, 'F');
     }
     doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(8).setTextColor(...DARK);
     doc.text(label, xCosts + 3, rowY);
