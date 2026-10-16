@@ -1,5 +1,5 @@
 -- ============================================================
--- FreightFlow TMS — Seed inicial
+-- FACargo — Seed inicial
 -- Ejecutar DESPUÉS de schema.sql
 -- ============================================================
 -- NOTA: Este seed solo inserta datos de prueba en tablas que

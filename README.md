@@ -1,4 +1,4 @@
-# 🚛 FreightFlow TMS
+# 🚛 FACargo
 
 **Transportation Management System (TMS)** para administración integral de transporte de carga, logística, flotillas y fletes.
 
@@ -39,8 +39,8 @@
 
 ```bash
 # 1. Clonar repositorio
-git clone https://github.com/Descongelados/FreightFlowTMS.git
-cd FreightFlowTMS
+git clone https://github.com/Descongelados/FACargo.git
+cd FACargo
 
 # 2. Instalar dependencias
 npm install

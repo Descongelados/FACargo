@@ -26,7 +26,7 @@ export default function LoginPage() {
           <div className="p-2 bg-blue-600 rounded-lg">
             <Truck className="w-7 h-7 text-white" />
           </div>
-          <span className="text-2xl font-bold text-white">FreightFlow TMS</span>
+          <span className="text-2xl font-bold text-white">FACargo</span>
         </div>
 
         {/* Card */}
@@ -83,7 +83,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          FreightFlow TMS © {new Date().getFullYear()}
+          FACargo © {new Date().getFullYear()}
         </p>
       </div>
     </div>

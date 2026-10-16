@@ -1,5 +1,5 @@
 -- ============================================================
--- FreightFlow TMS — Supabase Schema completo
+-- FACargo — Supabase Schema completo
 -- Ejecutar en: Supabase > SQL Editor > New query
 -- ============================================================
 

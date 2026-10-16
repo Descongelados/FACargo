@@ -1,4 +1,4 @@
-# FreightFlow TMS — Base de Datos Supabase
+# FACargo — Base de Datos Supabase
 
 ## Pasos para aplicar el schema
 
@@ -10,7 +10,7 @@
 Copia `.env.example` como `.env` en la raíz del proyecto y llena los valores:
 
 ```env
-VITE_APP_TITLE=FreightFlow TMS
+VITE_APP_TITLE=FACargo
 VITE_APP_STAGE=2
 
 VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co

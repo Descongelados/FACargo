@@ -1,4 +1,4 @@
-# Arquitectura de FreightFlow TMS
+# Arquitectura de FACargo
 
 ## 1. Patrón de Diseño
 - **Frontend SPA**: React 18 con Vite y TypeScript estricto.

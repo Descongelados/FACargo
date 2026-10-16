@@ -1,4 +1,4 @@
-export const APP_NAME = "FreightFlow TMS";
+export const APP_NAME = "FACargo";
 
 export const TRIP_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Pendiente", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },

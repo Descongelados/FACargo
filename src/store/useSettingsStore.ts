@@ -41,8 +41,8 @@ export const DEFAULT_QUOTE_CONFIG: QuoteConfig = {
   primaryColor: '#342B63',
   accentColor: '#EA580C',
   phone: '+52 33 1234 5678',
-  email: 'contacto@freightflow.com',
-  website: 'www.freightflow.com',
+  email: 'contacto@facargo.com',
+  website: 'www.facargo.com',
   footerTagline: 'TU ALIADO EN EL CAMINO',
   footerSubline: 'FLETES LOCALES Y FORÁNEOS  |  CARGA SEGURA  |  SOLUCIONES LOGÍSTICAS',
   features: [
@@ -89,7 +89,7 @@ export const useSettingsStore = create<SettingsState>()(
         set((s) => ({ quoteConfig: { ...s.quoteConfig, ...cfg } })),
       resetQuoteConfig: () => set({ quoteConfig: DEFAULT_QUOTE_CONFIG }),
     }),
-    { name: 'freightflow-settings' }
+    { name: 'facargo-settings' }
   )
 );
 
