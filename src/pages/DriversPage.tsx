@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { UserCheck, Pencil, Trash2, Star } from 'lucide-react';
+import { UserCheck, Pencil, Trash2, Star, Route, ArrowRight } from 'lucide-react';
 import { useDriversStore } from '../store/useDriversStore';
 import { useVehiclesStore } from '../store/useVehiclesStore';
+import { useTripsStore } from '../store/useTripsStore';
 import { Driver, DriverStatus } from '../types';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -9,7 +10,8 @@ import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
-import { DRIVER_STATUS_LABELS } from '../constants';
+import { DRIVER_STATUS_LABELS, TRIP_STATUS_LABELS } from '../constants';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import { requireFields } from '../utils/validate';
 
 const EMPTY_DRIVER: Omit<Driver, 'id'> = {
@@ -20,6 +22,8 @@ const EMPTY_DRIVER: Omit<Driver, 'id'> = {
 export default function DriversPage() {
   const { drivers, addDriver, updateDriver, deleteDriver } = useDriversStore();
   const { vehicles } = useVehiclesStore();
+  const trips = useTripsStore((s) => s.trips);
+  const [tripsDriver, setTripsDriver] = useState<Driver | null>(null);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,6 +50,7 @@ export default function DriversPage() {
     else addDriver(form);
     setIsModalOpen(false);
   };
+  const driverTrips = tripsDriver ? trips.filter((t) => t.driverId === tripsDriver.id) : [];
   const f = (key: keyof Omit<Driver, 'id'>, val: string | number | undefined) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -102,6 +107,10 @@ export default function DriversPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => setTripsDriver(d)} title="Ver viajes" className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-300 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
+                            <Route className="w-3.5 h-3.5" /> Viajes
+                            <span className="text-slate-500">{trips.filter((t) => t.driverId === d.id).length}</span>
+                          </button>
                           <button onClick={() => openEdit(d)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => deleteDriver(d.id)} className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
@@ -114,6 +123,43 @@ export default function DriversPage() {
           </div>
         </div>
       )}
+
+      <Modal isOpen={!!tripsDriver} onClose={() => setTripsDriver(null)} title={`Viajes de ${tripsDriver?.fullName ?? ''}`} size="xl">
+        {driverTrips.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">Este operador aún no tiene viajes asignados.</p>
+        ) : (
+          <>
+            <p className="text-xs text-slate-400 mb-3">
+              {driverTrips.length} viaje{driverTrips.length === 1 ? '' : 's'} · {driverTrips.filter((t) => t.status === 'delivered').length} entregado{driverTrips.filter((t) => t.status === 'delivered').length === 1 ? '' : 's'}
+            </p>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {driverTrips.map((t) => {
+                const s = TRIP_STATUS_LABELS[t.status];
+                return (
+                  <div key={t.id} className="bg-slate-700/30 border border-slate-700/50 rounded-lg p-3 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-bold text-white text-sm">{t.tripNumber}</span>
+                        <StatusBadge colorClass={s.color} label={s.label} />
+                        <span className="text-xs text-slate-400">{formatDate(t.departureDate)}</span>
+                      </div>
+                      <p className="text-sm text-white font-medium mb-0.5">Cliente: {t.clientName || '—'}</p>
+                      <div className="flex items-center gap-2 text-sm text-slate-300">
+                        {t.origin} <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /> {t.destination}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {t.cargoDescription}
+                        {t.vehicleUnit && <> · Unidad: <span className="text-slate-300">{t.vehicleUnit}</span></>}
+                      </p>
+                    </div>
+                    <p className="text-base font-bold text-emerald-400 shrink-0">{formatCurrency(t.rate)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Modal>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? 'Editar Operador' : 'Nuevo Operador'} size="lg">
         <div className="grid grid-cols-2 gap-4">
