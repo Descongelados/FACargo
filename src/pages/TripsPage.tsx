@@ -350,6 +350,12 @@ export default function TripsPage() {
     setTripForm(p => ({ ...p, vehicleId, vehicleUnit: v?.unitNumber ?? '' }));
   };
   const advanceStatus = (trip: Trip) => {
+    // Un viaje no puede avanzar sin operador: si falta, se abre la edición para asignarlo
+    if (!trip.driverId) {
+      requireFields({ 'Operador': trip.driverId });
+      openEditTrip(trip);
+      return;
+    }
     const idx = TRIP_FLOW.indexOf(trip.status);
     if (idx < TRIP_FLOW.length - 1) updateTripStatus(trip.id, TRIP_FLOW[idx + 1]);
   };

@@ -90,7 +90,7 @@ export default function DriversPage() {
                     <tr key={d.id} className="hover:bg-slate-700/30 transition-colors">
                       <td className="px-4 py-3">
                         <p className="font-medium text-white">{d.fullName}</p>
-                        <p className="text-xs text-slate-400">{d.totalTrips} viajes realizados</p>
+                        <p className="text-xs text-slate-400">{trips.filter((t) => t.driverId === d.id && t.status === 'delivered').length} viajes realizados</p>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-300">{d.licenseNumber}</td>
                       <td className="px-4 py-3 text-slate-300 text-xs">{d.licenseExpiry}</td>
