@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Users, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Route, ArrowRight } from 'lucide-react';
 import { useClientsStore } from '../store/useClientsStore';
+import { useTripsStore } from '../store/useTripsStore';
 import { useNotifyStore } from '../store/useNotifyStore';
 import { Client } from '../types';
 import PageHeader from '../components/ui/PageHeader';
@@ -9,7 +10,8 @@ import SearchBar from '../components/ui/SearchBar';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import { FormField, Input, Select } from '../components/ui/FormElements';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import { TRIP_STATUS_LABELS } from '../constants';
 
 const EMPTY_CLIENT: Omit<Client, 'id'> = {
   name: '', taxId: '', contactName: '', email: '', phone: '',
@@ -18,6 +20,8 @@ const EMPTY_CLIENT: Omit<Client, 'id'> = {
 
 export default function ClientsPage() {
   const { clients, addClient, updateClient, deleteClient } = useClientsStore();
+  const trips = useTripsStore((s) => s.trips);
+  const [tripsClient, setTripsClient] = useState<Client | null>(null);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,6 +48,8 @@ export default function ClientsPage() {
     else addClient(form);
     setIsModalOpen(false);
   };
+  const clientTrips = tripsClient ? trips.filter((t) => t.clientId === tripsClient.id) : [];
+  const clientTripsTotal = clientTrips.filter((t) => t.status !== 'cancelled').reduce((sum, t) => sum + t.rate, 0);
   const f = (key: keyof Omit<Client, 'id'>, val: string | number) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -99,6 +105,10 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <button onClick={() => setTripsClient(c)} title="Ver viajes" className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-300 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
+                          <Route className="w-3.5 h-3.5" /> Viajes
+                          <span className="text-slate-500">{trips.filter((t) => t.clientId === c.id).length}</span>
+                        </button>
                         <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
                         <button onClick={() => deleteClient(c.id)} className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -110,6 +120,43 @@ export default function ClientsPage() {
           </div>
         </div>
       )}
+
+      <Modal isOpen={!!tripsClient} onClose={() => setTripsClient(null)} title={`Viajes de ${tripsClient?.name ?? ''}`} size="xl">
+        {clientTrips.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">Este cliente aún no tiene viajes registrados.</p>
+        ) : (
+          <>
+            <p className="text-xs text-slate-400 mb-3">
+              {clientTrips.length} viaje{clientTrips.length === 1 ? '' : 's'} · Total (sin cancelados): <span className="text-emerald-400 font-semibold">{formatCurrency(clientTripsTotal)}</span>
+            </p>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {clientTrips.map((t) => {
+                const s = TRIP_STATUS_LABELS[t.status];
+                return (
+                  <div key={t.id} className="bg-slate-700/30 border border-slate-700/50 rounded-lg p-3 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-bold text-white text-sm">{t.tripNumber}</span>
+                        <StatusBadge colorClass={s.color} label={s.label} />
+                        <span className="text-xs text-slate-400">{formatDate(t.departureDate)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-300">
+                        {t.origin} <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /> {t.destination}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {t.cargoDescription}
+                        {t.driverName && <> · Operador: <span className="text-slate-300">{t.driverName}</span></>}
+                        {t.vehicleUnit && <> · Unidad: <span className="text-slate-300">{t.vehicleUnit}</span></>}
+                      </p>
+                    </div>
+                    <p className="text-base font-bold text-emerald-400 shrink-0">{formatCurrency(t.rate)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Modal>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? 'Editar Cliente' : 'Nuevo Cliente'} size="lg">
         <div className="grid grid-cols-2 gap-4">
