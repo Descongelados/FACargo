@@ -1,189 +1,159 @@
 import type { Quote } from '../types';
-import { APP_NAME, QUOTE_STATUS_LABELS } from '../constants';
+import { QUOTE_STATUS_LABELS } from '../constants';
 import { formatCurrency, formatDate } from './formatters';
+import { useSettingsStore, hexToRgb } from '../store/useSettingsStore';
 
-// ─── Colores corporativos ──────────────────────────────────────────────────────
-const C = {
-  purple:      [52,  43,  99]  as [number, number, number],  // #342B63 – encabezado/secciones
-  orange:      [234, 88,  12]  as [number, number, number],  // #EA580C – acento / total
-  darkText:    [17,  24,  39]  as [number, number, number],  // #111827
-  mutedText:   [107, 114, 128] as [number, number, number],  // #6B7280
-  lightBg:     [243, 244, 246] as [number, number, number],  // #F3F4F6
-  white:       [255, 255, 255] as [number, number, number],
-  borderGray:  [209, 213, 219] as [number, number, number],  // #D1D5DB
-};
-
-/** Genera el PDF de la cotización con formato profesional inspirado en el diseño de referencia. */
+/** Genera el PDF de la cotización leyendo la configuración del store. */
 export async function createQuotePdf(q: Quote) {
   const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+  const cfg = useSettingsStore.getState().quoteConfig;
 
-  const W  = doc.internal.pageSize.getWidth();   // 215.9
-  const H  = doc.internal.pageSize.getHeight();  // 279.4
-  const ML = 14;   // margen izquierdo
-  const MR = 14;   // margen derecho
-  const CW = W - ML - MR; // ancho útil
+  const PRIMARY  = hexToRgb(cfg.primaryColor);
+  const ACCENT   = hexToRgb(cfg.accentColor);
+  const DARK     = [17,  24,  39]  as [number, number, number];
+  const MUTED    = [107, 114, 128] as [number, number, number];
+  const LIGHT_BG = [243, 244, 246] as [number, number, number];
+  const WHITE    = [255, 255, 255] as [number, number, number];
+
+  const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+  const W  = doc.internal.pageSize.getWidth();
+  const H  = doc.internal.pageSize.getHeight();
+  const ML = 14;
+  const MR = 14;
+  const CW = W - ML - MR;
 
   // ─── 1. ENCABEZADO ──────────────────────────────────────────────────────────
-  // Franja morada completa
-  doc.setFillColor(...C.purple);
+  doc.setFillColor(...PRIMARY);
   doc.rect(0, 0, W, 28, 'F');
 
-  // Nombre empresa (blanco + naranja simulado)
-  doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(...C.white);
-  doc.text(APP_NAME, ML, 12);
-
-  // Sub-slogan
+  doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(...WHITE);
+  doc.text(cfg.companyName, ML, 12);
   doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(180, 170, 220);
-  doc.text('LOGÍSTICA QUE TE LLEVA MÁS LEJOS', ML, 17);
+  doc.text(cfg.slogan, ML, 17);
 
-  // Número de cotización y fecha (derecha)
-  doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...C.white);
+  doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...WHITE);
   doc.text(q.quoteNumber, W - MR, 10, { align: 'right' });
   doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(200, 190, 240);
-  doc.text(`${formatDate(q.createdAt)}`, W - MR, 15.5, { align: 'right' });
+  doc.text(formatDate(q.createdAt), W - MR, 15.5, { align: 'right' });
   doc.text(`Vigencia: ${formatDate(q.validUntil)}`, W - MR, 20, { align: 'right' });
 
-  // Etiqueta "COTIZACIÓN" naranja – bloque derecho pequeño
-  doc.setFillColor(...C.orange);
+  doc.setFillColor(...ACCENT);
   doc.roundedRect(W - MR - 38, 0, 38 + MR, 28, 0, 0, 'F');
-  doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(...C.white);
+  doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(...WHITE);
   doc.text('COTIZACIÓN', W - MR - 19 + MR / 2, 11, { align: 'center' });
   doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(255, 220, 200);
-  doc.text('SERVICIO DE FLETE', W - MR - 19 + MR / 2, 16.5, { align: 'center' });
-  doc.text('SOLUCIONES LOGÍSTICAS', W - MR - 19 + MR / 2, 21, { align: 'center' });
-  doc.text('A TU MEDIDA', W - MR - 19 + MR / 2, 25, { align: 'center' });
+  doc.text('SERVICIO DE FLETE',   W - MR - 19 + MR / 2, 16.5, { align: 'center' });
+  doc.text('SOLUCIONES LOGÍSTICAS', W - MR - 19 + MR / 2, 21,  { align: 'center' });
+  doc.text('A TU MEDIDA',         W - MR - 19 + MR / 2, 25,   { align: 'center' });
 
   let y = 35;
 
   // ─── 2. FRANJA DE CARACTERÍSTICAS ───────────────────────────────────────────
-  doc.setFillColor(...C.lightBg);
+  doc.setFillColor(...LIGHT_BG);
   doc.rect(0, y - 2, W, 14, 'F');
-
-  const features = [
-    { icon: '🛡', title: 'Seguro de mercancía', sub: 'Tu carga protegida' },
-    { icon: '📍', title: 'Rastreo GPS', sub: 'Monitoreo en tiempo real' },
-    { icon: '🇲🇽', title: 'Cobertura nacional', sub: 'Llegamos a donde nos necesites' },
-    { icon: '👷', title: 'Operador certificado', sub: 'Experiencia y seguridad' },
-  ];
-  const fW = CW / features.length;
-  features.forEach((f, i) => {
+  const fW = CW / cfg.features.length;
+  cfg.features.forEach((f, i) => {
     const fx = ML + i * fW + fW / 2;
-    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...C.purple);
+    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...PRIMARY);
     doc.text(f.title, fx, y + 4, { align: 'center' });
-    doc.setFont('helvetica', 'normal').setFontSize(6.5).setTextColor(...C.mutedText);
+    doc.setFont('helvetica', 'normal').setFontSize(6.5).setTextColor(...MUTED);
     doc.text(f.sub, fx, y + 8, { align: 'center' });
   });
   y += 18;
 
-  // ─── 3. SECCIONES: DATOS CLIENTE + DETALLES + RUTA ──────────────────────────
+  // ─── 3. SECCIONES: CLIENTE + DETALLES + RUTA ────────────────────────────────
   const col1W = CW * 0.36;
   const col2W = CW * 0.38;
   const col3W = CW * 0.26;
 
-  // Helper: sección con encabezado morado
   const sectionHeader = (title: string, x: number, sy: number, w: number) => {
-    doc.setFillColor(...C.purple);
+    doc.setFillColor(...PRIMARY);
     doc.roundedRect(x, sy, w, 7, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...C.white);
+    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...WHITE);
     doc.text(title, x + 4, sy + 5);
   };
 
-  // Helper: fila label / valor
-  const dataRow = (label: string, value: string, x: number, ry: number, labelW: number, valW: number) => {
-    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...C.darkText);
+  const dataRow = (label: string, value: string, x: number, ry: number, lw: number, vw: number) => {
+    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...DARK);
     doc.text(`${label}:`, x, ry);
-    doc.setFont('helvetica', 'normal').setTextColor(...C.mutedText);
-    const lines = doc.splitTextToSize(value || '-', valW) as string[];
-    doc.text(lines, x + labelW, ry);
+    doc.setFont('helvetica', 'normal').setTextColor(...MUTED);
+    const lines = doc.splitTextToSize(value || '-', vw) as string[];
+    doc.text(lines, x + lw, ry);
     return lines.length * 5;
   };
 
-  // ── Col 1: Datos del cliente
+  // Col 1: Datos del cliente
   const x1 = ML;
   sectionHeader('DATOS DEL CLIENTE', x1, y, col1W - 2);
   let y1 = y + 10;
-  const lw1 = 20;
-  const vw1 = col1W - lw1 - 4;
+  const lw1 = 20, vw1 = col1W - lw1 - 4;
   const clientRows: [string, string][] = [
     ['Empresa', q.clientName],
     ...(q.guestClientPhone ? [['Teléfono', q.guestClientPhone] as [string, string]] : []),
-    ...(q.guestClientEmail ? [['Correo', q.guestClientEmail] as [string, string]] : []),
+    ...(q.guestClientEmail ? [['Correo',   q.guestClientEmail] as [string, string]] : []),
     ['Origen', q.origin],
   ];
-  for (const [lbl, val] of clientRows) {
-    y1 += dataRow(lbl, val, x1, y1, lw1, vw1);
-  }
+  for (const [l, v] of clientRows) y1 += dataRow(l, v, x1, y1, lw1, vw1);
 
-  // ── Col 2: Detalles del servicio
+  // Col 2: Detalles del servicio
   const x2 = ML + col1W + 2;
   sectionHeader('DETALLES DEL SERVICIO', x2, y, col2W - 2);
   let y2 = y + 10;
-  const lw2 = 26;
-  const vw2 = col2W - lw2 - 4;
+  const lw2 = 26, vw2 = col2W - lw2 - 4;
   const serviceRows: [string, string][] = [
-    ['Carga', q.cargoDescription],
+    ['Carga',     q.cargoDescription],
     ['Peso est.', `${q.cargoWeightKg.toLocaleString('es-MX')} kg`],
-    ['Unidad', q.trailerType],
+    ['Unidad',    q.trailerType],
     ...(q.vehicleUnit ? [['No. Unidad', q.vehicleUnit] as [string, string]] : []),
-    ['Vigencia', formatDate(q.validUntil)],
-    ['Estatus', QUOTE_STATUS_LABELS[q.status]?.label ?? q.status],
+    ['Vigencia',  formatDate(q.validUntil)],
+    ['Estatus',   QUOTE_STATUS_LABELS[q.status]?.label ?? q.status],
   ];
-  for (const [lbl, val] of serviceRows) {
-    y2 += dataRow(lbl, val, x2, y2, lw2, vw2);
-  }
+  for (const [l, v] of serviceRows) y2 += dataRow(l, v, x2, y2, lw2, vw2);
 
-  // ── Col 3: Ruta
+  // Col 3: Ruta
   const x3 = ML + col1W + col2W + 4;
   sectionHeader('RUTA', x3, y, col3W - 2);
   let y3 = y + 12;
-  doc.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...C.purple);
+  doc.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...PRIMARY);
   const originLines = doc.splitTextToSize(q.origin, col3W - 4) as string[];
   doc.text(originLines, x3 + 2, y3);
   y3 += originLines.length * 5 + 3;
 
-  // Línea punteada
-  doc.setDrawColor(...C.orange);
-  doc.setLineWidth(0.5);
+  doc.setDrawColor(...ACCENT).setLineWidth(0.5);
   doc.setLineDashPattern([1, 1.5], 0);
   doc.line(x3 + (col3W - 4) / 2, y3, x3 + (col3W - 4) / 2, y3 + 8);
   doc.setLineDashPattern([], 0);
 
-  // Distancia
-  doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...C.orange);
+  doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...ACCENT);
   doc.text(`${q.distanceKm} km`, x3 + (col3W - 4) / 2, y3 + 13, { align: 'center' });
   y3 += 18;
 
-  doc.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...C.purple);
+  doc.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...PRIMARY);
   const destLines = doc.splitTextToSize(q.destination, col3W - 4) as string[];
   doc.text(destLines, x3 + 2, y3);
 
-  // Avanzar al máximo de las 3 columnas
   y = Math.max(y1, y2, y3 + destLines.length * 5) + 8;
 
-  // ─── 4. DESGLOSE DE COSTOS + CONDICIONES COMERCIALES ────────────────────────
+  // ─── 4. DESGLOSE + CONDICIONES ──────────────────────────────────────────────
   const halfW = CW * 0.5;
   const xCosts = ML;
   const xConds = ML + halfW + 4;
 
-  // ── Desglose
   sectionHeader('DESGLOSE DE COSTOS', xCosts, y, halfW - 2);
   y += 9;
 
-  // Encabezados tabla
-  doc.setFillColor(...C.purple);
+  doc.setFillColor(...PRIMARY);
   doc.rect(xCosts, y, halfW - 2, 6, 'F');
-  doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...C.white);
-  doc.text('CONCEPTO', xCosts + 3, y + 4.2);
+  doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...WHITE);
+  doc.text('CONCEPTO',      xCosts + 3,         y + 4.2);
   doc.text('IMPORTE (MXN)', xCosts + halfW - 5, y + 4.2, { align: 'right' });
   y += 7;
 
-  // Calcular subtotal y total dinámicamente
   const baseRate  = q.proposedRate;
-  const toll      = Math.round(baseRate * 0.08);
-  const maneuver  = Math.round(baseRate * 0.06);
+  const toll      = Math.round(baseRate * cfg.tollPercent / 100);
+  const maneuver  = Math.round(baseRate * cfg.maneuverPercent / 100);
   const subtotal  = baseRate + toll + maneuver;
-  const iva       = Math.round(subtotal * 0.16);
+  const iva       = Math.round(subtotal * cfg.ivaPercent / 100);
   const total     = subtotal + iva;
 
   const costRows: [string, number, boolean][] = [
@@ -191,49 +161,35 @@ export async function createQuotePdf(q: Quote) {
     ['Casetas',                       toll,      false],
     ['Maniobras de carga y descarga', maneuver,  false],
     ['Subtotal',                      subtotal,  true],
-    ['IVA (16%)',                     iva,       false],
+    [`IVA (${cfg.ivaPercent}%)`,      iva,       false],
   ];
 
   let rowY = y;
-  costRows.forEach(([label, amount, isBold], idx) => {
+  costRows.forEach(([label, amount, bold], idx) => {
     if (idx % 2 === 0) {
-      doc.setFillColor(...C.lightBg);
+      doc.setFillColor(...LIGHT_BG);
       doc.rect(xCosts, rowY - 4, halfW - 2, 6, 'F');
     }
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-      .setFontSize(8).setTextColor(...C.darkText);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(8).setTextColor(...DARK);
     doc.text(label, xCosts + 3, rowY);
     doc.text(formatCurrency(amount), xCosts + halfW - 5, rowY, { align: 'right' });
     rowY += 6;
   });
 
-  // Fila TOTAL naranja
-  doc.setFillColor(...C.orange);
+  doc.setFillColor(...ACCENT);
   doc.roundedRect(xCosts, rowY - 1, halfW - 2, 10, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...C.white);
+  doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...WHITE);
   doc.text('TOTAL', xCosts + 5, rowY + 6);
   doc.text(`${formatCurrency(total)} MXN`, xCosts + halfW - 5, rowY + 6, { align: 'right' });
   const costsEndY = rowY + 14;
 
-  // ── Condiciones comerciales
+  // Condiciones
   sectionHeader('CONDICIONES COMERCIALES', xConds, y - 9, halfW - 2);
   let condsY = y + 1;
-
-  const conditions = [
-    'El precio incluye operador y combustible.',
-    'La cotización considera carga y descarga en planta.',
-    'No incluye almacenaje ni servicios extraordinarios.',
-    `Tiempo estimado de tránsito según distancia (${q.distanceKm} km).`,
-    'Forma de pago: Transferencia bancaria.',
-    'Crédito sujeto a autorización.',
-    `Esta cotización tiene una vigencia hasta ${formatDate(q.validUntil)}.`,
-    'Cualquier cambio en la ruta o peso puede generar variación en el costo.',
-  ];
-
-  conditions.forEach((cond) => {
-    doc.setFillColor(...C.orange);
+  cfg.conditions.forEach((cond) => {
+    doc.setFillColor(...ACCENT);
     doc.circle(xConds + 2.5, condsY - 1, 1, 'F');
-    doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(...C.darkText);
+    doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(...DARK);
     const lines = doc.splitTextToSize(cond, halfW - 9) as string[];
     doc.text(lines, xConds + 6, condsY);
     condsY += lines.length * 4.5 + 1.5;
@@ -243,12 +199,12 @@ export async function createQuotePdf(q: Quote) {
 
   // ─── 5. NOTAS ────────────────────────────────────────────────────────────────
   if (q.notes) {
-    doc.setFillColor(...C.lightBg);
+    doc.setFillColor(...LIGHT_BG);
     doc.roundedRect(ML, y, CW, 8, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...C.purple);
+    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(...PRIMARY);
     doc.text('NOTAS ADICIONALES', ML + 3, y + 5);
     y += 9;
-    doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(...C.darkText);
+    doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(...DARK);
     const noteLines = doc.splitTextToSize(q.notes, CW - 6) as string[];
     doc.text(noteLines, ML + 3, y);
     y += noteLines.length * 4.5 + 6;
@@ -256,33 +212,23 @@ export async function createQuotePdf(q: Quote) {
 
   // ─── 6. FOOTER ───────────────────────────────────────────────────────────────
   const footerY = H - 22;
-
-  // Franja naranja
-  doc.setFillColor(...C.orange);
+  doc.setFillColor(...ACCENT);
   doc.rect(0, footerY, W * 0.72, 8, 'F');
-
-  // Franja morada
-  doc.setFillColor(...C.purple);
+  doc.setFillColor(...PRIMARY);
   doc.rect(W * 0.72, footerY, W * 0.28, 8, 'F');
 
-  // Datos de contacto en naranja
-  doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(...C.white);
-  doc.text('📞  +52 33 1234 5678', ML, footerY + 5.5);
-  doc.text('✉  contacto@freightflow.com', ML + 45, footerY + 5.5);
-  doc.text('🌐  www.freightflow.com', ML + 100, footerY + 5.5);
+  doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(...WHITE);
+  doc.text(`📞  ${cfg.phone}`,   ML,       footerY + 5.5);
+  doc.text(`✉  ${cfg.email}`,   ML + 45,  footerY + 5.5);
+  doc.text(`🌐  ${cfg.website}`, ML + 100, footerY + 5.5);
 
-  // Texto morado
-  doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...C.white);
-  doc.text('TU ALIADO EN EL CAMINO', W - MR, footerY + 5.5, { align: 'right' });
+  doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...WHITE);
+  doc.text(cfg.footerTagline, W - MR, footerY + 5.5, { align: 'right' });
 
-  // Sub-footer
-  doc.setFillColor(...C.purple);
+  doc.setFillColor(...PRIMARY);
   doc.rect(0, H - 14, W, 14, 'F');
   doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(180, 170, 220);
-  doc.text(
-    'FLETES LOCALES Y FORÁNEOS  |  CARGA SEGURA  |  SOLUCIONES LOGÍSTICAS',
-    W / 2, H - 7, { align: 'center' }
-  );
+  doc.text(cfg.footerSubline, W / 2, H - 7, { align: 'center' });
 
   return doc;
 }
@@ -292,9 +238,8 @@ export function quoteFileName(q: Quote): string {
 }
 
 /**
- * Comparte el PDF con el menú nativo del dispositivo (WhatsApp, correo, AirDrop, etc.),
- * para que el usuario elija cómo enviarlo. Si el navegador no soporta compartir
- * archivos, descarga el PDF.
+ * Comparte el PDF con el menú nativo del dispositivo (WhatsApp, correo, AirDrop, etc.).
+ * Si el navegador no soporta compartir archivos, descarga el PDF.
  */
 export async function shareQuotePdf(q: Quote): Promise<void> {
   const doc = await createQuotePdf(q);
