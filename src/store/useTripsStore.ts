@@ -13,7 +13,15 @@ interface TripsState {
   deleteTrip: (id: string) => Promise<void>;
 }
 
-export const useTripsStore = create<TripsState>((set) => ({
+const getTodayDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const useTripsStore = create<TripsState>((set, get) => ({
   trips: [],
   loading: false,
 
@@ -30,6 +38,15 @@ export const useTripsStore = create<TripsState>((set) => ({
   },
 
   addTrip: async (tripData) => {
+    const today = getTodayDate();
+    const dataToSave = { ...tripData };
+    if (dataToSave.status === 'in_transit' && !dataToSave.departureDate) {
+      dataToSave.departureDate = today;
+    } else if (dataToSave.status === 'delivered') {
+      if (!dataToSave.deliveryDate) dataToSave.deliveryDate = today;
+      if (!dataToSave.departureDate) dataToSave.departureDate = today;
+    }
+
     // Generar trip_number con conteo actual
     const { count } = await supabase
       .from('trips')
@@ -38,7 +55,7 @@ export const useTripsStore = create<TripsState>((set) => ({
 
     const { data: row, error } = await supabase
       .from('trips')
-      .insert({ ...tripToDB(tripData), trip_number: tripNumber })
+      .insert({ ...tripToDB(dataToSave), trip_number: tripNumber })
       .select('*, clients(name), drivers(full_name), vehicles(unit_number)')
       .single();
     if (!error && row) {
@@ -47,9 +64,24 @@ export const useTripsStore = create<TripsState>((set) => ({
   },
 
   updateTrip: async (id, updated) => {
+    const existing = get().trips.find(t => t.id === id);
+    const today = getTodayDate();
+    const dataToSave = { ...updated };
+
+    if (dataToSave.status === 'in_transit' && !dataToSave.departureDate && !existing?.departureDate) {
+      dataToSave.departureDate = today;
+    } else if (dataToSave.status === 'delivered') {
+      if (!dataToSave.deliveryDate && !existing?.deliveryDate) {
+        dataToSave.deliveryDate = today;
+      }
+      if (!dataToSave.departureDate && !existing?.departureDate) {
+        dataToSave.departureDate = today;
+      }
+    }
+
     const { data: row, error } = await supabase
       .from('trips')
-      .update(toDBPatch(updated))
+      .update(toDBPatch(dataToSave))
       .eq('id', id)
       .select('*, clients(name), drivers(full_name), vehicles(unit_number)')
       .single();
@@ -61,9 +93,22 @@ export const useTripsStore = create<TripsState>((set) => ({
   },
 
   updateTripStatus: async (id, status) => {
+    const existing = get().trips.find(t => t.id === id);
+    const today = getTodayDate();
+    const patch: Record<string, unknown> = { status };
+
+    if (status === 'in_transit' && !existing?.departureDate) {
+      patch.departure_date = today;
+    } else if (status === 'delivered') {
+      patch.delivery_date = today;
+      if (!existing?.departureDate) {
+        patch.departure_date = today;
+      }
+    }
+
     const { data: row, error } = await supabase
       .from('trips')
-      .update({ status })
+      .update(patch)
       .eq('id', id)
       .select('*, clients(name), drivers(full_name), vehicles(unit_number)')
       .single();

@@ -29,7 +29,7 @@ export function Input({ className, ...props }: InputProps) {
     <input
       {...props}
       className={cn(
-        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30',
+        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-800/80',
         className
       )}
     />
@@ -45,7 +45,7 @@ export function Select({ className, children, ...props }: SelectProps) {
     <select
       {...props}
       className={cn(
-        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30',
+        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-800/80',
         className
       )}
     >
@@ -63,7 +63,7 @@ export function Textarea({ className, ...props }: TextareaProps) {
     <textarea
       {...props}
       className={cn(
-        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 resize-none',
+        'w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 resize-none disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-800/80',
         className
       )}
     />

@@ -12,6 +12,7 @@ import { useVehiclesStore } from '../store/useVehiclesStore';
 import { useInsuranceStore } from '../store/useInsuranceStore';
 import { useExpensesStore } from '../store/useExpensesStore';
 import { useMaintenanceStore } from '../store/useMaintenanceStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { Trip, TripStatus, Quote, QuoteStatus, TrailerType } from '../types';
 import StatusBadge from '../components/ui/StatusBadge';
 import SearchBar from '../components/ui/SearchBar';
@@ -239,6 +240,8 @@ export default function TripsPage() {
   const { expenses } = useExpensesStore();
   const { maintenances } = useMaintenanceStore();
   const quoteConfig = useSettingsStore((s) => s.quoteConfig);
+  const { currentUser } = useAuthStore();
+  const isAdmin = currentUser?.role === 'admin';
 
   const [tab, setTab] = useState<Tab>('trips');
   const [search, setSearch] = useState('');
@@ -248,6 +251,7 @@ export default function TripsPage() {
   // modales viajes
   const [tripModalOpen, setTripModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const [tripForm, setTripForm] = useState<Omit<Trip, 'id' | 'tripNumber'>>(EMPTY_TRIP);
 
   // modales cotizaciones
@@ -317,11 +321,51 @@ export default function TripsPage() {
     return matchSearch && (statusFilter === 'all' || t.status === statusFilter);
   });
 
-  const openAddTrip = () => { setTripForm(EMPTY_TRIP); setEditingTripId(null); setTripModalOpen(true); };
-  const openEditTrip = (t: Trip) => {
-    const { id, tripNumber, ...rest } = t;
-    setTripForm(rest); setEditingTripId(id); setTripModalOpen(true);
+  const editingTrip = useMemo(() => {
+    return editingTripId ? trips.find(t => t.id === editingTripId) : null;
+  }, [editingTripId, trips]);
+
+  const openAddTrip = () => {
+    setTripForm(EMPTY_TRIP);
+    setEditingTripId(null);
+    setIsViewOnly(false);
+    setTripModalOpen(true);
   };
+
+  const openViewTrip = (t: Trip) => {
+    const { id, tripNumber, ...rest } = t;
+    setTripForm(rest);
+    setEditingTripId(id);
+    setIsViewOnly(true);
+    setTripModalOpen(true);
+  };
+
+  const openEditTrip = (t: Trip) => {
+    if (t.status === 'delivered' && !isAdmin) {
+      openViewTrip(t);
+      return;
+    }
+    const { id, tripNumber, ...rest } = t;
+    setTripForm(rest);
+    setEditingTripId(id);
+    setIsViewOnly(false);
+    setTripModalOpen(true);
+  };
+
+  const handleTripStatusChange = (newStatus: TripStatus) => {
+    const today = new Date().toISOString().split('T')[0];
+    setTripForm((p) => {
+      const updated = { ...p, status: newStatus };
+      if (newStatus === 'in_transit' && !p.departureDate) {
+        updated.departureDate = today;
+      } else if (newStatus === 'delivered') {
+        if (!p.deliveryDate) updated.deliveryDate = today;
+        if (!p.departureDate) updated.departureDate = today;
+      }
+      return updated;
+    });
+  };
+
   const handleSaveTrip = () => {
     if (!requireFields({
       'Cliente': tripForm.clientId,
@@ -330,22 +374,44 @@ export default function TripsPage() {
       'Origen': tripForm.origin,
       'Destino': tripForm.destination,
       'Descripción de Carga': tripForm.cargoDescription,
-      'Fecha de Salida': tripForm.departureDate,
     })) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    let finalDeparture = tripForm.departureDate ? tripForm.departureDate.split('T')[0] : '';
+    let finalDelivery = tripForm.deliveryDate ? tripForm.deliveryDate.split('T')[0] : '';
+
+    if (tripForm.status === 'in_transit' && !finalDeparture) {
+      finalDeparture = today;
+    }
+    if (tripForm.status === 'delivered') {
+      if (!finalDelivery) finalDelivery = today;
+      if (!finalDeparture) finalDeparture = today;
+    }
+
     const { clientName: _cn, driverName: _dn, vehicleUnit: _vu, ...tripData } = tripForm;
-    if (editingTripId) updateTrip(editingTripId, tripForm); else addTrip(tripData);
+    const payload = {
+      ...tripData,
+      departureDate: finalDeparture,
+      deliveryDate: finalDelivery,
+    };
+
+    if (editingTripId) updateTrip(editingTripId, payload); else addTrip(payload);
     setTripModalOpen(false);
   };
+
   const ft = (key: keyof typeof tripForm, val: string | number) =>
     setTripForm((p) => ({ ...p, [key]: val }));
+
   const handleTripClientChange = (clientId: string) => {
     const c = clients.find(c => c.id === clientId);
     setTripForm(p => ({ ...p, clientId, clientName: c?.name ?? '' }));
   };
+
   const handleTripDriverChange = (driverId: string) => {
     const d = drivers.find(d => d.id === driverId);
     setTripForm(p => ({ ...p, driverId, driverName: d?.fullName ?? '' }));
   };
+
   const handleTripVehicleChange = (vehicleId: string) => {
     const v = vehicles.find(v => v.id === vehicleId);
     // Propone el operador que tiene asignada la unidad (se puede cambiar después)
@@ -355,11 +421,13 @@ export default function TripsPage() {
       ...(d ? { driverId: d.id, driverName: d.fullName } : {}),
     }));
   };
+
   // Operador del viaje: el asignado al viaje o, si no tiene, el que tiene asignada la unidad
   const getTripDriver = (trip: Trip) => {
     if (trip.driverId) return drivers.find(d => d.id === trip.driverId);
     return trip.vehicleId ? drivers.find(d => d.assignedVehicleId === trip.vehicleId) : undefined;
   };
+
   const advanceStatus = (trip: Trip) => {
     // Un viaje no puede avanzar sin operador: si la unidad tiene uno asignado se guarda en el viaje;
     // si no, se abre la edición para asignarlo
@@ -372,8 +440,27 @@ export default function TripsPage() {
     const idx = TRIP_FLOW.indexOf(trip.status);
     if (idx >= TRIP_FLOW.length - 1) return;
     const next = TRIP_FLOW[idx + 1];
-    if (trip.driverId) updateTripStatus(trip.id, next);
-    else updateTrip(trip.id, { driverId: driver.id, status: next });
+    const today = new Date().toISOString().split('T')[0];
+
+    const updates: Partial<Trip> = { status: next };
+    if (!trip.driverId) {
+      updates.driverId = driver.id;
+    }
+    if (next === 'in_transit' && !trip.departureDate) {
+      updates.departureDate = today;
+    }
+    if (next === 'delivered') {
+      updates.deliveryDate = today;
+      if (!trip.departureDate) {
+        updates.departureDate = today;
+      }
+    }
+
+    if (trip.driverId && !updates.departureDate && !updates.deliveryDate) {
+      updateTripStatus(trip.id, next);
+    } else {
+      updateTrip(trip.id, updates);
+    }
   };
   const toggleExpand = (id: string) =>
     setExpandedTripId(prev => (prev === id ? null : id));
@@ -628,8 +715,20 @@ export default function TripsPage() {
                             <ChevronRight className="w-3.5 h-3.5" /> Avanzar
                           </button>
                         )}
-                        <button onClick={() => openEditTrip(trip)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => deleteTrip(trip.id)} className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {trip.status === 'delivered' && !isAdmin ? (
+                          <button onClick={() => openViewTrip(trip)} title="Ver información del viaje" className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-600/20 text-slate-300 border border-slate-500/30 rounded-lg hover:bg-slate-600/30 transition-colors">
+                            <Eye className="w-3.5 h-3.5" /> Ver información
+                          </button>
+                        ) : (
+                          <>
+                            <button onClick={() => openEditTrip(trip)} title="Editar viaje" className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => deleteTrip(trip.id)} title="Eliminar viaje" className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -733,64 +832,98 @@ export default function TripsPage() {
       {previewQuote && <QuotePreviewModal quote={previewQuote} onClose={() => setPreviewQuote(null)} />}
 
       {/* ══ MODAL VIAJE ═════════════════════════════════════════════════════════ */}
-      <Modal isOpen={tripModalOpen} onClose={() => setTripModalOpen(false)} title={editingTripId ? 'Editar Viaje' : 'Nuevo Viaje'} size="xl">
+      <Modal
+        isOpen={tripModalOpen}
+        onClose={() => setTripModalOpen(false)}
+        title={isViewOnly ? `Información del Viaje${editingTrip ? ` — ${editingTrip.tripNumber}` : ''}` : editingTripId ? `Editar Viaje${editingTrip ? ` — ${editingTrip.tripNumber}` : ''}` : 'Nuevo Viaje'}
+        size="xl"
+      >
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Cliente" required>
-            <Select value={tripForm.clientId} onChange={(e) => handleTripClientChange(e.target.value)}>
+            <Select value={tripForm.clientId} onChange={(e) => handleTripClientChange(e.target.value)} disabled={isViewOnly}>
               <option value="">Seleccionar cliente...</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </FormField>
           <FormField label="Operador" required>
-            <Select value={tripForm.driverId} onChange={(e) => handleTripDriverChange(e.target.value)}>
+            <Select value={tripForm.driverId} onChange={(e) => handleTripDriverChange(e.target.value)} disabled={isViewOnly}>
               <option value="">Seleccionar operador...</option>
               {drivers.map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
             </Select>
           </FormField>
           <FormField label="Unidad" required>
-            <Select value={tripForm.vehicleId} onChange={(e) => handleTripVehicleChange(e.target.value)}>
+            <Select value={tripForm.vehicleId} onChange={(e) => handleTripVehicleChange(e.target.value)} disabled={isViewOnly}>
               <option value="">Seleccionar unidad...</option>
               {vehicles.map(v => <option key={v.id} value={v.id}>{v.unitNumber} — {v.brand} {v.model}</option>)}
             </Select>
           </FormField>
           <FormField label="Estatus">
-            <Select value={tripForm.status} onChange={(e) => ft('status', e.target.value as TripStatus)}>
+            <Select value={tripForm.status} onChange={(e) => handleTripStatusChange(e.target.value as TripStatus)} disabled={isViewOnly}>
               {Object.entries(TRIP_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </Select>
           </FormField>
           <FormField label="Origen" required>
-            <Input value={tripForm.origin} onChange={(e) => ft('origin', e.target.value)} placeholder="Monterrey, NL" />
+            <Input value={tripForm.origin} onChange={(e) => ft('origin', e.target.value)} placeholder="Monterrey, NL" disabled={isViewOnly} />
           </FormField>
           <FormField label="Destino" required>
-            <Input value={tripForm.destination} onChange={(e) => ft('destination', e.target.value)} placeholder="Ciudad de México, CDMX" />
+            <Input value={tripForm.destination} onChange={(e) => ft('destination', e.target.value)} placeholder="Ciudad de México, CDMX" disabled={isViewOnly} />
           </FormField>
-          <FormField label="Fecha de Salida" required>
-            <Input type="datetime-local" value={tripForm.departureDate} onChange={(e) => ft('departureDate', e.target.value)} />
+          <FormField label="Fecha de Salida" required={tripForm.status === 'in_transit' || tripForm.status === 'delivered'}>
+            <Input
+              type="date"
+              value={tripForm.departureDate ? tripForm.departureDate.split('T')[0] : ''}
+              onChange={(e) => ft('departureDate', e.target.value)}
+              disabled={isViewOnly}
+            />
           </FormField>
-          <FormField label="Fecha Estimada de Entrega">
-            <Input type="datetime-local" value={tripForm.deliveryDate} onChange={(e) => ft('deliveryDate', e.target.value)} />
+          <FormField label="Fecha de Entrega" required={tripForm.status === 'delivered'}>
+            <Input
+              type="date"
+              value={tripForm.deliveryDate ? tripForm.deliveryDate.split('T')[0] : ''}
+              onChange={(e) => ft('deliveryDate', e.target.value)}
+              disabled={isViewOnly}
+            />
           </FormField>
           <FormField label="Tarifa (MXN)" required>
-            <Input type="number" value={tripForm.rate} onChange={(e) => ft('rate', +e.target.value)} min={0} />
+            <Input type="number" value={tripForm.rate} onChange={(e) => ft('rate', +e.target.value)} min={0} disabled={isViewOnly} />
           </FormField>
           <FormField label="Distancia (km)">
-            <Input type="number" value={tripForm.distanceKm} onChange={(e) => ft('distanceKm', +e.target.value)} min={0} />
+            <Input type="number" value={tripForm.distanceKm} onChange={(e) => ft('distanceKm', +e.target.value)} min={0} disabled={isViewOnly} />
           </FormField>
           <FormField label="Descripción de Carga" className="col-span-2">
-            <Input value={tripForm.cargoDescription} onChange={(e) => ft('cargoDescription', e.target.value)} placeholder="24 tarimas de alimentos no perecederos" />
+            <Input value={tripForm.cargoDescription} onChange={(e) => ft('cargoDescription', e.target.value)} placeholder="24 tarimas de alimentos no perecederos" disabled={isViewOnly} />
           </FormField>
           <FormField label="Peso de Carga (kg)">
-            <Input type="number" value={tripForm.cargoWeightKg} onChange={(e) => ft('cargoWeightKg', +e.target.value)} min={0} />
+            <Input type="number" value={tripForm.cargoWeightKg} onChange={(e) => ft('cargoWeightKg', +e.target.value)} min={0} disabled={isViewOnly} />
           </FormField>
           <FormField label="Notas">
-            <Input value={tripForm.notes ?? ''} onChange={(e) => ft('notes', e.target.value)} placeholder="Instrucciones especiales..." />
+            <Input value={tripForm.notes ?? ''} onChange={(e) => ft('notes', e.target.value)} placeholder="Instrucciones especiales..." disabled={isViewOnly} />
           </FormField>
         </div>
         <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-slate-700">
-          <button onClick={() => setTripModalOpen(false)} className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Cancelar</button>
-          <button onClick={handleSaveTrip} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-medium">
-            {editingTripId ? 'Guardar Cambios' : 'Crear Viaje'}
-          </button>
+          {isViewOnly ? (
+            <button
+              onClick={() => setTripModalOpen(false)}
+              className="px-4 py-2 text-sm text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors font-medium"
+            >
+              Cerrar
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setTripModalOpen(false)}
+                className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveTrip}
+                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-medium"
+              >
+                {editingTripId ? 'Guardar Cambios' : 'Crear Viaje'}
+              </button>
+            </>
+          )}
         </div>
       </Modal>
 

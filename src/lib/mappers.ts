@@ -383,14 +383,21 @@ export function toDBPatch(patch: object): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (NON_COLUMN_KEYS.has(key)) continue;
+    const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
     // undefined en un campo _id o _date → NULL (borrar asignación, e.g. "Sin asignar")
-    if (value === undefined && /(_id|_date)$/.test(key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`))) {
-      out[key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)] = null; continue;
+    if (value === undefined && /(_id|_date)$/.test(col)) {
+      out[col] = null;
+      continue;
     }
     if (value === undefined) continue;
-    const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    // Un id o fecha vacios deben guardarse como NULL (uuid/date no aceptan '')
-    out[col] = value === '' && /(_id|_date)$/.test(col) ? null : value;
+    // Un id o fecha vacíos deben guardarse como NULL (uuid/date no aceptan '')
+    if (value === '' && /(_id|_date)$/.test(col)) {
+      out[col] = null;
+    } else if (typeof value === 'string' && /_date$/.test(col) && value.includes('T')) {
+      out[col] = value.split('T')[0];
+    } else {
+      out[col] = value;
+    }
   }
   return out;
 }
