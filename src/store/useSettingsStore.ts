@@ -35,7 +35,7 @@ export interface QuoteConfig {
   maneuverPercent: number;
 }
 
-const DEFAULT_QUOTE_CONFIG: QuoteConfig = {
+export const DEFAULT_QUOTE_CONFIG: QuoteConfig = {
   companyName: APP_NAME,
   slogan: 'LOGÍSTICA QUE TE LLEVA MÁS LEJOS',
   primaryColor: '#342B63',

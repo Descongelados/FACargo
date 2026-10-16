@@ -10,20 +10,28 @@ interface NotifyState {
   clear: () => void;
 }
 
-let timer: ReturnType<typeof setTimeout> | undefined;
+// Timer separado por tipo para evitar race condition
+let errorTimer: ReturnType<typeof setTimeout> | undefined;
+let successTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useNotifyStore = create<NotifyState>((set) => ({
   message: null,
   type: 'error',
   notifyError: (message) => {
+    clearTimeout(errorTimer);
+    clearTimeout(successTimer);
     set({ message, type: 'error' });
-    clearTimeout(timer);
-    timer = setTimeout(() => set({ message: null }), 8000);
+    errorTimer = setTimeout(() => set({ message: null }), 8000);
   },
   notifySuccess: (message) => {
+    clearTimeout(errorTimer);
+    clearTimeout(successTimer);
     set({ message, type: 'success' });
-    clearTimeout(timer);
-    timer = setTimeout(() => set({ message: null }), 4000);
+    successTimer = setTimeout(() => set({ message: null }), 4000);
   },
-  clear: () => set({ message: null }),
+  clear: () => {
+    clearTimeout(errorTimer);
+    clearTimeout(successTimer);
+    set({ message: null });
+  },
 }));

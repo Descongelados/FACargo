@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuthStore } from '../store/useAuthStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore, DEFAULT_QUOTE_CONFIG } from '../store/useSettingsStore';
 import type { QuoteConfig } from '../store/useSettingsStore';
 import { useNotifyStore } from '../store/useNotifyStore';
 import { supabase } from '../lib/supabase';
@@ -150,6 +150,8 @@ export default function SettingsPage() {
 
   // ── Users tab ─────────────────────────────────────────────────────────────────
   const { users, addUser, loadUsers } = useAuthStore();
+  // Cargar usuarios al montar el componente
+  useEffect(() => { loadUsers(); }, []);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -359,7 +361,10 @@ export default function SettingsPage() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => { resetQuoteConfig(); }}
+                onClick={() => {
+                  resetQuoteConfig();
+                  setQc({ ...DEFAULT_QUOTE_CONFIG });
+                }}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-400 hover:text-white bg-slate-700/60 hover:bg-slate-700 border border-slate-600 rounded-lg transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Restaurar
