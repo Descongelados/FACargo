@@ -35,6 +35,8 @@ export interface Driver {
   assignedVehicleId?: string;
   rating: number;
   totalTrips: number;
+  /** Sueldo semanal (MXN); se usa en el costo estimado de las cotizaciones */
+  weeklySalary: number;
 }
 
 export type VehicleStatus = 'available' | 'in_transit' | 'maintenance' | 'out_of_service';

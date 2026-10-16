@@ -67,6 +67,7 @@ export function driverFromDB(row: Record<string, unknown>): Driver {
     assignedVehicleId:  row.assigned_vehicle_id as string | undefined,
     rating:             row.rating as number,
     totalTrips:         row.total_trips as number,
+    weeklySalary:       (row.weekly_salary as number | null) ?? 0,
   };
 }
 
@@ -81,6 +82,7 @@ export function driverToDB(d: Omit<Driver, 'id'>) {
     assigned_vehicle_id:  d.assignedVehicleId ?? null,
     rating:               d.rating,
     total_trips:          d.totalTrips,
+    weekly_salary:        d.weeklySalary ?? 0,
   };
 }
 

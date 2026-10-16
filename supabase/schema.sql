@@ -129,6 +129,7 @@ create table public.drivers (
   assigned_vehicle_id uuid,         -- FK añadida después de vehicles
   rating              numeric(3,2)  not null default 5.0,
   total_trips         integer       not null default 0,
+  weekly_salary       numeric(12,2) not null default 0,
   created_at          timestamptz   not null default now(),
   updated_at          timestamptz   not null default now()
 );

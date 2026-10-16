@@ -267,8 +267,8 @@ export default function TripsPage() {
   const [rateAuto, setRateAuto] = useState(true);
   // Precio por litro editado a mano (null = usar el valor por defecto del combustible)
   const [quotePriceInput, setQuotePriceInput] = useState<number | null>(null);
-  // Sueldo semanal del operador, capturado a mano (MXN)
-  const [quoteDriverSalary, setQuoteDriverSalary] = useState(0);
+  // Ajuste manual del sueldo semanal (MXN); null = usar el sueldo del operador asignado a la unidad
+  const [quoteSalaryInput, setQuoteSalaryInput] = useState<number | null>(null);
 
   // ─── Costo/km de la unidad seleccionada en la cotización ──────────────────
   const quoteCostPerKm = useMemo(() => {
@@ -288,6 +288,8 @@ export default function TripsPage() {
   const quoteFuelCost = quoteLiters * quotePricePerLiter;
   const quotePolicy = quoteVehicle ? policies.find(p => p.vehicleId === quoteVehicle.id) : undefined;
   const quoteInsuranceDay = quotePolicy ? quotePolicy.annualPremium / 365 : 0;
+  const quoteDriver = quoteVehicle ? drivers.find(d => d.assignedVehicleId === quoteVehicle.id) : undefined;
+  const quoteDriverSalary = quoteSalaryInput ?? quoteDriver?.weeklySalary ?? 0;
   const quoteWearCost = hasDistance ? quoteForm.distanceKm * WEAR_COST_PER_KM : 0;
   const quoteDriverSalaryDay = quoteDriverSalary / WORK_DAYS_PER_WEEK;
   const quoteEstimatedCost = quoteFuelCost + quoteInsuranceDay + quoteWearCost + quoteDriverSalaryDay;
@@ -382,7 +384,7 @@ export default function TripsPage() {
     setQuoteMargin(DEFAULT_MARGIN);
     setRateAuto(true);
     setQuotePriceInput(null);
-    setQuoteDriverSalary(0);
+    setQuoteSalaryInput(null);
     setQuoteModalOpen(true);
   };
   const openEditQuote = (q: Quote) => {
@@ -395,7 +397,7 @@ export default function TripsPage() {
     setQuoteTried(false);
     setRateAuto(false); // conserva la tarifa guardada hasta que el usuario mueva un costo o la barra
     setQuotePriceInput(null);
-    setQuoteDriverSalary(0);
+    setQuoteSalaryInput(null);
     setQuoteModalOpen(true);
   };
   const handleSaveQuote = () => {
@@ -912,7 +914,7 @@ export default function TripsPage() {
                   <div className="flex items-center justify-center gap-1">
                     <span className="text-slate-400 text-xs">$</span>
                     <input type="number" min={0} step={50} value={quoteDriverSalary || ''}
-                      onChange={(e) => { setQuoteDriverSalary(Math.max(0, +e.target.value)); setRateAuto(true); }}
+                      onChange={(e) => { setQuoteSalaryInput(Math.max(0, +e.target.value)); setRateAuto(true); }}
                       placeholder="0"
                       className="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white text-right focus:outline-none focus:border-blue-500"
                     />
@@ -921,6 +923,8 @@ export default function TripsPage() {
                     {quoteDriverSalary > 0
                       ? `${formatCurrency(quoteDriverSalaryDay)} / día (÷ ${WORK_DAYS_PER_WEEK})`
                       : `÷ ${WORK_DAYS_PER_WEEK} días`}
+                    {quoteDriver && quoteSalaryInput === null && ` · ${quoteDriver.fullName}`}
+                    {!quoteDriver && quoteSalaryInput === null && ' · Unidad sin operador asignado'}
                   </p>
                 </div>
                 <div className="col-span-2 text-center pt-3 border-t border-slate-600/50">

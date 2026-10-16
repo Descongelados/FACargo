@@ -16,7 +16,7 @@ import { requireFields } from '../utils/validate';
 
 const EMPTY_DRIVER: Omit<Driver, 'id'> = {
   fullName: '', licenseNumber: '', licenseExpiry: '', phone: '',
-  emergencyContact: '', status: 'available', rating: 5.0, totalTrips: 0,
+  emergencyContact: '', status: 'available', rating: 5.0, totalTrips: 0, weeklySalary: 0,
 };
 
 export default function DriversPage() {
@@ -77,7 +77,7 @@ export default function DriversPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700">
-                  {['Operador', 'Licencia', 'Vencimiento', 'Teléfono', 'Unidad', 'Rating', 'Estatus', ''].map((h) => (
+                  {['Operador', 'Licencia', 'Vencimiento', 'Teléfono', 'Unidad', 'Sueldo semanal', 'Rating', 'Estatus', ''].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -96,6 +96,7 @@ export default function DriversPage() {
                       <td className="px-4 py-3 text-slate-300 text-xs">{d.licenseExpiry}</td>
                       <td className="px-4 py-3 text-slate-300">{d.phone}</td>
                       <td className="px-4 py-3 text-slate-300">{vehicle ? vehicle.unitNumber : <span className="text-slate-500">Sin asignar</span>}</td>
+                      <td className="px-4 py-3 text-slate-300">{d.weeklySalary > 0 ? formatCurrency(d.weeklySalary) : <span className="text-slate-500">—</span>}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
@@ -185,6 +186,9 @@ export default function DriversPage() {
               <option value="rest">En Descanso</option>
               <option value="inactive">Inactivo</option>
             </Select>
+          </FormField>
+          <FormField label="Sueldo Semanal (MXN)">
+            <Input type="number" min={0} step={50} value={form.weeklySalary || ''} onChange={(e) => f('weeklySalary', Math.max(0, +e.target.value))} placeholder="0" />
           </FormField>
           <FormField label="Unidad Asignada">
             <Select value={form.assignedVehicleId ?? ''} onChange={(e) => f('assignedVehicleId', e.target.value || undefined)}>
